@@ -8,7 +8,7 @@ import { useAuth, useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop, Linkedin, Twitter, KeyRound, UserCog, ShieldCheck } from 'lucide-react';
+import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop, Linkedin, Twitter, KeyRound, UserCog } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
@@ -96,7 +96,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { href: '/datasheet', icon: FileSpreadsheet, label: 'Datasheet' },
     { href: '/invoices', icon: FileText, label: 'Invoices' },
     { href: '/upload', icon: Upload, label: 'Upload' },
-    { href: '/check-role', icon: ShieldCheck, label: 'Check Role' },
   ];
 
   const MobileNavLinks = () => (

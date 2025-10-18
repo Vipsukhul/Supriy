@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, query, where } from "firebase/firestore";
+import { collection, doc, updateDoc } from "firebase/firestore";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import {
   Table,
@@ -14,19 +14,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { User } from "@/models/user.model";
+import type { Role, User } from "@/models/user.model";
 import { useMemoFirebase } from "@/firebase/provider";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AddUserDialog } from "./components/add-user-dialog";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { setRole } from "@/ai/flows/set-role-flow";
+import { useToast } from "@/hooks/use-toast";
+import { getAuth } from "firebase/auth";
 
 export default function UserManagementPage() {
   const firestore = useFirestore();
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-
+  const { toast } = useToast();
 
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading: usersLoading, error } = useCollection<User>(usersCollectionRef);
@@ -34,6 +39,29 @@ export default function UserManagementPage() {
   const getInitials = (firstName?: string, lastName?: string) => {
     return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase();
   }
+  
+  const handleRoleChange = async (userId: string, newRole: Role) => {
+    try {
+        await setRole({ userId, role: newRole });
+        
+        // Also update the role in the Firestore document
+        const userDocRef = doc(firestore, "users", userId);
+        await updateDoc(userDocRef, { role: newRole });
+
+        toast({
+            title: "Role Updated",
+            description: `User role has been changed to ${newRole}. The user may need to sign out and sign back in for the changes to take full effect.`,
+        });
+
+    } catch (e: any) {
+        console.error("Failed to set role:", e);
+        toast({
+            variant: "destructive",
+            title: "Update Failed",
+            description: `Could not update role: ${e.message}`,
+        });
+    }
+  };
 
   if (usersLoading) {
     return (
@@ -91,7 +119,7 @@ export default function UserManagementPage() {
         isOpen={isAddUserDialogOpen}
         onOpenChange={setIsAddUserDialogOpen}
         allowedRoles={["admin", "Country Manager", "Manager", "Engineer", "Guest"]}
-        defaultRole="admin"
+        defaultRole="Guest"
     />
     <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
@@ -116,6 +144,7 @@ export default function UserManagementPage() {
                         <TableHead>Region</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Sign Up Date</TableHead>
+                        <TableHead>Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -137,16 +166,40 @@ export default function UserManagementPage() {
                         <TableCell>{user.mobileNumber}</TableCell>
                         <TableCell>{user.region}</TableCell>
                         <TableCell>
-                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role}
-                            </Badge>
+                            <Select defaultValue={user.role} onValueChange={(newRole) => handleRoleChange(user.id, newRole as Role)}>
+                                <SelectTrigger className="w-[150px]">
+                                    <SelectValue placeholder="Select role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="admin">admin</SelectItem>
+                                    <SelectItem value="Country Manager">Country Manager</SelectItem>
+                                    <SelectItem value="Manager">Manager</SelectItem>
+                                    <SelectItem value="Engineer">Engineer</SelectItem>
+                                    <SelectItem value="Guest">Guest</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </TableCell>
                         <TableCell>{new Date(user.signUpDate).toLocaleDateString()}</TableCell>
+                         <TableCell>
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                      <span className="sr-only">Open menu</span>
+                                      <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem>Edit User</DropdownMenuItem>
+                                  <DropdownMenuItem className="text-destructive">Delete User</DropdownMenuItem>
+                              </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                         </TableRow>
                     ))
                     ) : (
                     <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
+                        <TableCell colSpan={6} className="h-24 text-center">
                         {error ? 'You do not have permission to view users.' : 'No users found.'}
                         </TableCell>
                     </TableRow>

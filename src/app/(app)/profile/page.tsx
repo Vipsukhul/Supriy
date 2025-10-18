@@ -21,7 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { User as UserIcon, Phone, Globe } from "lucide-react";
+import { User as UserIcon, Phone, Globe, Shield } from "lucide-react";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
@@ -119,23 +119,21 @@ export default function ProfilePage() {
       <CardHeader>
         <CardTitle className="text-2xl font-headline">Edit Profile</CardTitle>
         <CardDescription>
-          Update your account details below. Your email cannot be changed.
+          Update your account details below. Your email and role cannot be changed from this page.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
              <FormField
-                control={form.control}
                 name="email"
-                disabled
-                render={({ field }) => (
+                render={() => (
                     <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                         <Input
+                        disabled
                         placeholder={user?.email || "Email not available"}
-                        {...field}
                         />
                     </FormControl>
                     <FormMessage />
@@ -204,6 +202,25 @@ export default function ProfilePage() {
                   <FormMessage />
                 </FormItem>
               )}
+            />
+             <FormField
+                name="role"
+                render={() => (
+                    <FormItem>
+                    <FormLabel>Role</FormLabel>
+                     <div className="relative">
+                        <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                            <Input
+                            disabled
+                            placeholder={userData?.role || "Role not available"}
+                            className="pl-10"
+                            />
+                        </FormControl>
+                    </div>
+                    <FormMessage />
+                    </FormItem>
+                )}
             />
             <div className="pt-4">
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
