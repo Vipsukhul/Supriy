@@ -1,73 +1,74 @@
 /**
- * @file Firestore Security Rules for DebtFlow application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for the /users/{userId} collection.
- * Only authenticated users can access their own user documents.
- * Additionally, this ruleset implements a role-based access control (RBAC) system with "admin,"
- * "Country Manager," "Manager," "Engineer," and "Guest" roles.  Currently, only "admin" users
- * (specifically vipsukhul@gmail.com and supriysukhadev12@gmail.com) have elevated privileges.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user profiles
+ * and allows public read access to customer and financial record data.
  *
  * Data Structure:
- * User data is stored under /users/{userId}, where {userId} corresponds to the
- * Firebase Authentication UID.
+ * - /users/{userId}: Stores individual user profiles, secured by owner-only access.
+ * - /customers/{customerId}: Stores customer information, publicly readable.
+ * - /financialRecords/{recordId}: Stores financial records, publicly readable.
  *
  * Key Security Decisions:
- * - User listing is explicitly denied to prevent unauthorized data access.
- * - The rules default to strict ownership and require explicit exceptions for other access patterns.
- * - The /users/{userId} collection requires authenticated access and user-ownership.
- *
- * Denormalization for Authorization:
- * These rules rely on the `request.auth.uid` being equivalent to the `userId`
- * path parameter for authorization. There are no additional denormalized fields required.
- *
- * Structural Segregation:
- * There is no need for structural segregation in this basic configuration, as all
- * user data is considered private and stored under the /users/{userId} path.
+ * - Users can only read/write their own profile data.
+ * - Customer and financial record data is publicly readable but only writeable by a server.
+ *   This assumes an external mechanism (e.g., a Cloud Function) is in place to manage this data.
+ * - Listing of user documents is disallowed.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for the `/users/{userId}` collection.
+     * @description Controls access to user profile documents. Only the authenticated user can read or write their own profile.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user with UID 'user_abc' can create their own document.
-     * @allow (get) - Authenticated user with UID 'user_abc' can read their own document.
-     * @allow (update) - Authenticated user with UID 'user_abc' can update their own document.
-     * @allow (delete) - Authenticated user with UID 'user_abc' can delete their own document.
-     * @deny (create) - Authenticated user with UID 'user_xyz' cannot create a document with ID 'user_abc'.
-     * @deny (get) - Authenticated user with UID 'user_xyz' cannot read a document with ID 'user_abc'.
-     * @deny (update) - Authenticated user with UID 'user_xyz' cannot update a document with ID 'user_abc'.
-     * @deny (delete) - Authenticated user with UID 'user_xyz' cannot delete a document with ID 'user_abc'.
-     * @principle Enforces document ownership for all operations.  Validates that the `userId` path parameter matches the authenticated user's UID.
+     * @allow (create) User with UID "user123" can create their profile document.
+     * @allow (get, update, delete) User with UID "user123" can get, update, and delete their own profile document.
+     * @deny (create, get, update, delete) User with UID "user456" cannot access the profile document of user with UID "user123".
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      // Helper functions
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isAdmin() {
-          return isSignedIn() && (request.auth.token.email == "vipsukhul@gmail.com" || request.auth.token.email == "supriysukhadev12@gmail.com");
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      // Read permissions
-      allow get: if isOwner(userId) || isAdmin();
+      allow get: if isOwner(userId);
       allow list: if false;
+      allow create: if isOwner(userId) && request.auth.uid == userId;
+      allow update: if isExistingOwner(userId) && request.auth.uid == userId;
+      allow delete: if isExistingOwner(userId) && request.auth.uid == userId;
+    }
 
-      // Write permissions
-      allow create: if isOwner(userId) ;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+    /**
+     * @description Controls access to customer documents. Allows public read access, but restricts writes.
+     * @path /customers/{customerId}
+     * @allow (get, list) Any user (or no user) can read customer data.
+     * @deny (create, update, delete) No user can create, update, or delete customer data through the client.
+     * @principle Allows public read access for customer data, but restricts writes.
+     */
+    match /customers/{customerId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Controls access to financial record documents. Allows public read access, but restricts writes.
+     * @path /financialRecords/{recordId}
+     * @allow (get, list) Any user (or no user) can read financial record data.
+     * @deny (create, update, delete) No user can create, update, or delete financial record data through the client.
+     * @principle Allows public read access for financial record data, but restricts writes.
+     */
+    match /financialRecords/{recordId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
     }
   }
 }
