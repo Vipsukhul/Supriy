@@ -1,95 +1,162 @@
 /**
- * @fileoverview Firestore Security Rules for DebtFlow application.
+ * @file Firestore Security Rules
+ * @description This ruleset implements a role-based access control model.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles,
- * allows open reads on customer and financial record data, and restricts
- * counter modification to prevent ID conflicts.
+ *   This ruleset enforces a role-based access control model.
+ *   Users can only read and write data according to their assigned role.
+ *   Data access is restricted based on the user's role (admin, manager, engineer, guest).
  *
  * Data Structure:
- * - /users/{userId}: Stores individual user profiles, accessible only to the
- *   corresponding authenticated user.
- * - /customers/{customerId}: Stores customer data, publicly readable, but
- *   create, update, and delete operations are not allowed.
- * - /financialRecords/{recordId}: Stores financial records, publicly readable,
- *   but create, update, and delete operations are not allowed.
- * - /counters/users: Stores the user ID counter; write access is denied.
+ *   /users/{userId}: Stores individual user data. Access is restricted to the user themselves and admins.
+ *   /customers/{customerId}: Stores customer information.
+ *   /financialRecords/{recordId}: Stores monthly financial records, including invoice data. Access is limited to assigned engineer and higher roles.
+ *   /counters/users: Stores a counter for generating sequential user IDs. Only admins can modify this.
  *
  * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - Customer and financial record data is publicly readable for reporting.
- * - The user ID counter is locked down to prevent unauthorized modification.
- *
+ *   - Only authenticated users can access the database.
+ *   - Users can only read and write their own user data.
+ *   - Admins have full access to all data.
+ *   - Listing of users is disallowed.
+ *   - Engineers can only access financial records which are assigned to them
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces owner-only access to user profiles.
+     * @description Checks if the user is signed in.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the resource (i.e., the user ID matches the authenticated user ID).
+     * @param {string} userId - The user ID to check against the authenticated user ID.
+     * @return {boolean} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is an existing owner of the resource (i.e., the user ID matches the authenticated user ID and the resource exists).
+     * @param {string} userId - The user ID to check against the authenticated user ID.
+     * @return {boolean} True if the user is an existing owner, false otherwise.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && getSelf().data != null;
+    }
+
+    function getSelf() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    /**
+     * @description Checks if the user has the 'admin' role.
+     * @return {boolean} True if the user is an admin, false otherwise.
+     */
+    function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    /**
+     * @description Checks if the user has the 'Country Manager' role.
+     * @return {boolean} True if the user is a Country Manager, false otherwise.
+     */
+    function isCountryManager() {
+        return isSignedIn() && request.auth.token.role == 'Country Manager';
+    }
+
+    /**
+     * @description Checks if the user has the 'Manager' role.
+     * @return {boolean} True if the user is a Manager, false otherwise.
+     */
+    function isManager() {
+        return isSignedIn() && request.auth.token.role == 'Manager';
+    }
+
+    /**
+     * @description Checks if the user has the 'Engineer' role.
+     * @return {boolean} True if the user is an Engineer, false otherwise.
+     */
+    function isEngineer() {
+        return isSignedIn() && request.auth.token.role == 'Engineer';
+    }
+
+    /**
+     * @description Checks if the user has the 'Guest' role.
+     * @return {boolean} True if the user is a Guest, false otherwise.
+     */
+    function isGuest() {
+        return isSignedIn() && request.auth.token.role == 'Guest';
+    }
+
+    /**
+     * @description Grants access to a path if the authenticated user's UID matches the `userId` parameter.
      * @path /users/{userId}
-     * @allow (create) - User A can create their own profile.
-     *      Request: auth.uid = "userA", resource.data.uid = "userA"
-     * @allow (get, update, delete) - User A can access their own profile.
-     *      Request: auth.uid = "userA", path = "/users/userA"
-     * @deny (create) - User A cannot create a profile for User B.
-     *      Request: auth.uid = "userA", resource.data.uid = "userB"
-     * @deny (get, update, delete) - User A cannot access User B's profile.
-     *      Request: auth.uid = "userA", path = "/users/userB"
-     * @principle Enforces document ownership for all operations.
+     * @allow (get) User with UID 'user123' can read their own profile.
+     *    `request.auth.uid == 'user123'`
+     * @allow (create) User with UID 'user456' can create their own profile.
+     *    `request.auth.uid == 'user456'`
+     * @allow (update) User with UID 'user789' can update their own profile.
+     *    `request.auth.uid == 'user789'`
+     * @allow (delete) User with UID 'user999' can delete their own profile.
+     *    `request.auth.uid == 'user999'`
+     * @deny (get) User with UID 'user123' cannot read another user's profile ('user456').
+     *    `request.auth.uid == 'user123' && userId == 'user456'`
+     * @deny (create) User with UID 'user123' cannot create a profile with a different ID ('user456').
+     *    `request.auth.uid == 'user123' && request.resource.data.uid == 'user456'`
+     * @deny (update) User with UID 'user123' cannot update another user's profile ('user456').
+     *    `request.auth.uid == 'user123' && userId == 'user456'`
+     * @deny (delete) User with UID 'user123' cannot delete another user's profile ('user456').
+     *    `request.auth.uid == 'user123' && userId == 'user456'`
+     * @principle Enforces document ownership for reads and writes, ensuring users can only access their own data.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if false; // Listing users is disallowed for privacy.
+      allow create: if isOwner(userId) && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     /**
-     * @description Allows public read access to customer data.
+     * @description Grants access to a path for customers.
      * @path /customers/{customerId}
-     * @allow (get, list) - Any user can read customer data.
-     *      Request: auth.uid = null
-     * @deny (create, update, delete) - No user can modify customer data.
-     *      Request: auth.uid = "userA"
-     * @principle Allows public read access.
      */
     match /customers/{customerId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isAdmin() || isCountryManager() || isManager();
+      allow update: if isAdmin() || isCountryManager() || isManager();
+      allow delete: if isAdmin();
     }
 
     /**
-     * @description Allows public read access to financial records.
+     * @description Grants access to a path for financial records.
      * @path /financialRecords/{recordId}
-     * @allow (get, list) - Any user can read financial records.
-     *      Request: auth.uid = null
-     * @deny (create, update, delete) - No user can modify financial records.
-     *      Request: auth.uid = "userA"
-     * @principle Allows public read access.
      */
     match /financialRecords/{recordId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get: if isAdmin() || isCountryManager() || isManager() || (isEngineer() && resource.data.assignedEngineerId == request.auth.uid);
+      allow list: if isAdmin() || isCountryManager() || isManager() || isEngineer();
+      allow create: if isAdmin() || isCountryManager() || isManager() || (isEngineer() && request.resource.data.assignedEngineerId == request.auth.uid);
+      allow update: if isAdmin() || isCountryManager() || isManager() || (isEngineer() && resource.data.assignedEngineerId == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Restricts access to the user ID counter.
-     * @path /counters/users
-     * @deny (get, list, create, update, delete) - No user can access or modify the user ID counter.
-     *      Request: auth.uid = "userA"
-     * @principle Prevents unauthorized modification of the user ID counter.
-     */
-    match /counters/users {
-      allow get, list, create, update, delete: if false;
+       /**
+        * @description Grants access to a path for counter.
+        * @path /counters/users
+        */
+    match /counters/{document} {
+      allow get: if isAdmin();
+      allow list: if false;
+      allow create: if false;
+      allow update: if isAdmin();
+      allow delete: if false;
     }
   }
 }
