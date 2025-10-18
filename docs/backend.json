@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account within the DebtFlow application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user account."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "signUpDate": {
+          "type": "string",
+          "description": "The date and time the user signed up.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "signUpDate"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user data, keyed by the Firebase Authentication UID.  Facilitates path-based ownership for simplified security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "To support user login and signup for the DebtFlow application, we primarily need a structure to store user information. Given the requirement for authentication, we will utilize Firebase Authentication for handling user credentials. User data will be stored in a dedicated Firestore collection called 'users'. Each document in this collection will represent a user and will be keyed by the user's UID, which is provided by Firebase Authentication. This approach aligns with the principle of path-based ownership, making security rules straightforward. This structure facilitates secure 'list' operations because each user document is directly accessible via their UID, avoiding the need for complex filtering in rules."
+  }
+}
