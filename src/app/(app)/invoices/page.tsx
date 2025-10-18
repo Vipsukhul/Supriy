@@ -17,7 +17,7 @@ import { collection } from "firebase/firestore";
 import { FinancialRecord, Customer, Invoice } from "@/models/data.model";
 import { useMemoFirebase } from "@/firebase/provider";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { InvoiceSummary, MonthlySummary, EnrichedInvoiceSummary } from "@/models/invoice-summary.model";
 
@@ -175,7 +175,7 @@ export default function InvoicesPage() {
                         </TableRow>
                     ) : monthlySummaries.length > 0 ? (
                         monthlySummaries.map((summary) => (
-                        <Collapsible asChild key={summary.period} asChild>
+                        <Collapsible asChild key={summary.period}>
                             <Fragment>
                                 <TableRow className="font-medium">
                                     <TableCell>
