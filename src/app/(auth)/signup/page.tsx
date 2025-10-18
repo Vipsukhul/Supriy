@@ -110,7 +110,7 @@ export default function SignupPage() {
 
       toast({
         title: "Signup Successful",
-        description: "Your account has been created. Please login.",
+        description: "Your account has been created. Please login to continue.",
       });
 
       router.push('/login');
