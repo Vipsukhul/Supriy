@@ -24,13 +24,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Mail, Lock } from "lucide-react";
-import { useAuth, useUser, useFirestore } from "@/firebase";
+import { useAuth, useUser } from "@/firebase";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
-import { doc, getDoc } from "firebase/firestore";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 const formSchema = z.object({
@@ -41,7 +40,6 @@ const formSchema = z.object({
 export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useAuth();
-  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,9 +53,8 @@ export default function AdminLoginPage() {
   });
   
   useEffect(() => {
-    // If the initial user check is done and we have a user,
-    // the main admin layout will handle redirection/validation.
-    // If the user is an admin, they'll be sent to the dashboard.
+    // If we are done loading and a user is already logged in,
+    // the layout will handle redirection to the dashboard if they are an admin.
     if (!isUserLoading && user) {
         router.push('/admin/dashboard');
     }
@@ -66,29 +63,10 @@ export default function AdminLoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const loggedInUser = userCredential.user;
-
-      const userDocRef = doc(firestore, "users", loggedInUser.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
-          toast({
-            title: "Admin Login Successful",
-            description: "Welcome back! Redirecting...",
-          });
-          // Successful login will update the `user` state from the hook,
-          // and the useEffect above will handle the redirect.
-          router.push('/admin/dashboard');
-      } else {
-          // If the user is not an admin, sign them out immediately and show an error.
-          await auth.signOut();
-          toast({
-            variant: "destructive",
-            title: "Access Denied",
-            description: "You do not have administrative privileges.",
-          });
-      }
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      // On successful login, the `user` state will update,
+      // and the useEffect above will trigger the redirect to the dashboard.
+      // The admin layout will then perform the definitive role check.
     } catch (error: any) {
         let errorMessage = "An unexpected error occurred.";
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -99,9 +77,9 @@ export default function AdminLoginPage() {
             title: "Login Failed",
             description: errorMessage,
         });
-    } finally {
         setIsSubmitting(false);
     }
+    // No need to set isSubmitting to false on success because a page navigation will occur
   }
   
   // Show a loader ONLY while the initial auth check is happening.
