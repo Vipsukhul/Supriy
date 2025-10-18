@@ -87,6 +87,11 @@ export default function SignupPage() {
       const userDocRef = doc(firestore, "users", userAuth.uid);
       setDocumentNonBlocking(userDocRef, newUser, { merge: true });
 
+      toast({
+        title: "Signup Successful",
+        description: "Your account has been created.",
+      });
+
     } catch (error: any) {
       toast({
         variant: "destructive",

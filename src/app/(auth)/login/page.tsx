@@ -28,6 +28,7 @@ import { useAuth, useUser } from "@/firebase";
 import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { onAuthStateChanged } from "firebase/auth";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -59,6 +60,15 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user) {
+          toast({
+            title: "Login Successful",
+            description: "Welcome back!",
+          });
+          unsubscribe();
+        }
+      });
       initiateEmailSignIn(auth, values.email, values.password);
     } catch (error: any) {
       toast({
