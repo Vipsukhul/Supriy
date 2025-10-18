@@ -24,7 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Mail, Lock, User as UserIcon, Phone, Globe, Shield } from "lucide-react";
+import { Mail, Lock, User as UserIcon, Phone, Globe } from "lucide-react";
 import { useAuth, useFirestore, useUser } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -38,7 +38,6 @@ const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   mobileNumber: z.string().min(10, { message: "Mobile number must be at least 10 digits." }),
   region: z.string().min(2, { message: "Region is required." }),
-  role: z.string(),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
@@ -64,22 +63,10 @@ export default function SignupPage() {
       email: "",
       mobileNumber: "",
       region: "",
-      role: "Guest",
       password: "",
       confirmPassword: "",
     },
   });
-
-  const emailValue = form.watch("email");
-
-  useEffect(() => {
-    if (adminEmails.includes(emailValue.toLowerCase())) {
-        form.setValue("role", "admin");
-    } else {
-        form.setValue("role", "Guest");
-    }
-  }, [emailValue, form]);
-
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -253,26 +240,6 @@ export default function SignupPage() {
                 )}
                 />
             </div>
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role</FormLabel>
-                  <div className="relative">
-                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <FormControl>
-                      <Input
-                        {...field}
-                        className="pl-10"
-                        disabled
-                      />
-                    </FormControl>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="password"
