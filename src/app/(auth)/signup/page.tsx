@@ -46,7 +46,7 @@ const formSchema = z.object({
   path: ["confirmPassword"],
 });
 
-const adminEmails = ["vipsukhul@gmail.com", "supriysukhadev12@gmail.com"];
+const adminEmails = ["vipsukhul@gmail.com", "supriysukhadev12@gmail.com", "amardiptirpude@gmail.com"];
 
 export default function SignupPage() {
   const router = useRouter();
