@@ -31,7 +31,6 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { doc, getDoc } from "firebase/firestore";
-import type { User } from "@/models/user.model";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 const formSchema = z.object({
@@ -55,11 +54,12 @@ export default function AdminLoginPage() {
     },
   });
   
+  // This useEffect will run when the user state changes.
+  // The AdminLayout is the primary gatekeeper, but this can help redirect
+  // a user who is already logged in and lands on this page.
   useEffect(() => {
-    // If the user is loaded and confirmed to be an admin, redirect them.
-    // The admin check happens in the layout, so we just need to see if a user object exists.
     if (!isUserLoading && user) {
-        // A user is logged in. The layout will handle role-checking and redirection.
+        // A user is logged in. The AdminLayout will handle role checking.
         // We'll push to dashboard, and the layout will intercept if they aren't an admin.
         router.push('/admin/dashboard');
     }
@@ -79,7 +79,8 @@ export default function AdminLoginPage() {
             title: "Admin Login Successful",
             description: "Welcome back! Redirecting...",
           });
-          // After successful login, the useEffect will trigger the redirect.
+          // On successful admin login, the `user` state will update,
+          // and the useEffect above will trigger the redirect to the dashboard.
       } else {
           // If the user is not an admin, sign them out immediately and show an error.
           await auth.signOut();
@@ -104,26 +105,17 @@ export default function AdminLoginPage() {
     }
   }
   
-  // Show a loader ONLY while Firebase is initially checking the auth state.
-  if (isUserLoading) {
+  // While the initial user authentication is loading, or if a user is found (and redirection is happening),
+  // show the loading spinner.
+  if (isUserLoading || user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
       </div>
     );
   }
-
-  // If a user is logged in, the useEffect will handle redirection.
-  // We can show a loader while that happens.
-  if (user) {
-     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
-      </div>
-    );
-  }
   
-  // If no user is logged in and the initial check is complete, show the login form.
+  // Once loading is complete and we know there is no user, show the login form.
   return (
      <div className="min-h-screen bg-background flex items-center justify-center p-4">
        <div className="w-full max-w-md">
