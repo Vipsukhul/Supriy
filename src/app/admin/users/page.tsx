@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { collection, query, where } from "firebase/firestore";
 import { useCollection, useFirestore, useUser } from "@/firebase";
@@ -19,9 +19,14 @@ import { useMemoFirebase } from "@/firebase/provider";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AddUserDialog } from "./components/add-user-dialog";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
 
 export default function UserManagementPage() {
   const firestore = useFirestore();
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+
 
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading: usersLoading, error } = useCollection<User>(usersCollectionRef);
@@ -81,9 +86,20 @@ export default function UserManagementPage() {
   }
   
   return (
+    <>
+    <AddUserDialog 
+        isOpen={isAddUserDialogOpen}
+        onOpenChange={setIsAddUserDialogOpen}
+        allowedRoles={["admin", "Country Manager", "Manager", "Engineer", "Guest"]}
+        defaultRole="Guest"
+    />
     <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
+        <Button onClick={() => setIsAddUserDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create User
+        </Button>
       </div>
       <Card>
         <CardHeader>
@@ -141,6 +157,6 @@ export default function UserManagementPage() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }
-
