@@ -1,136 +1,89 @@
 /**
- * @file Firebase Security Rules for DebtFlow application.
+ * @fileoverview Firestore Security Rules for DebtFlow application.
  *
- * @core-philosophy This ruleset enforces role-based access control, granting different levels of permissions based on a user's assigned role.
- * Users can only manage their own profile data. Broader access is granted to "Country Manager", "Manager", and "Engineer" roles to specific data elements within the DebtFlow application.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles,
+ * allows public read access to customer data, and restricts access to financial records based on assigned engineer.
  *
- * @data-structure
- * - /users/{userId}: Stores individual user profiles. Access is restricted to the owner (the user themselves).
- * - /customers/{customerId}: Stores customer data. Publicly readable, but only "Country Manager" can modify.
- * - /financialRecords/{recordId}: Stores financial records. Role-based access controls the modifications.
+ * Data Structure:
+ * - /users/{userId}: Stores individual user profiles, accessible only to the owner.
+ * - /customers/{customerId}: Stores customer data, publicly readable.
+ * - /financialRecords/{recordId}: Stores financial records, write access restricted to the assigned engineer.
  *
- * @key-security-decisions
- * - User listing is disallowed to prevent unauthorized data harvesting.
- * - Read access to the /customers collection is public, assuming customer data is not sensitive.
- * - The rules validate that key fields such as user IDs remain consistent and immutable.
- *
- * @denormalization-for-authorization
- *  To authorize `financialRecords`, which contain invoice data, the `User.role` is used.
- *  For scalable authorization, consider denormalizing the `User.region` and `User.role` directly into the `FinancialRecord` document.
+ * Key Security Decisions:
+ * - Users cannot list all user accounts (potential privacy issue).
+ * - Customer data is public for all reads.
+ * - Financial records write operations are limited to the engineer assigned.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secure user profiles.  Users can only read/write their own profile.
+     * @description Manages access to user profile data.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' creates their profile with matching ID.
-     *   - auth.uid: 'user123'
-     *   - request.resource.data.id: 'user123'
-     * @deny (update) User 'user456' attempts to update 'user123' profile.
-     *   - auth.uid: 'user456'
-     * @principle Enforces document ownership; only the authenticated user can manage their own profile.
+     * @allow (create) User with UID lKcNcxsdOEPHXUuXlZuHQBOS3Rk1 can create their own profile.
+     * @allow (get) User with UID lKcNcxsdOEPHXUuXlZuHQBOS3Rk1 can read their own profile.
+     * @allow (update) User with UID lKcNcxsdOEPHXUuXlZuHQBOS3Rk1 can update their own profile.
+     * @allow (delete) User with UID lKcNcxsdOEPHXUuXlZuHQBOS3Rk1 can delete their own profile.
+     * @deny (create) User with UID otherUserId cannot create a profile for userId.
+     * @deny (get) User with UID otherUserId cannot read the profile of userId.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      function isExistingOwner(userId) {
-        return isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId));
-      }
-
       allow get: if isOwner(userId);
-      allow list: if false; // Prevent listing all users.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == userId;
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Secure customer data.  Anyone can read customer data, but only the Country Manager can create, update, or delete.
+     * @description Manages access to customer data.
      * @path /customers/{customerId}
-     * @allow (get, list) Any user can read customer data.
-     * @allow (create) Country Manager creates a new customer.
-     *   - auth.uid: (UID of a user with role "Country Manager")
-     * @deny (create) Regular user attempts to create a customer.
-     *   - auth.uid: (UID of a user without role "Country Manager")
-     * @principle  Role-based access control for write operations, public read access.
+     * @allow (get) Any user can read customer data.
+     * @allow (list) Any user can list customer data.
+     * @deny (create) No one can create customer documents.
+     * @deny (update) No one can update customer documents.
+     * @deny (delete) No one can delete customer documents.
+     * @principle Allows public read access to customer data.
      */
     match /customers/{customerId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isCountryManager() {
-        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Country Manager';
-      }
-      function isExistingCountryManager() {
-        return isCountryManager() && exists(/databases/$(database)/documents/customers/$(customerId));
-      }
-
       allow get, list: if true;
-      allow create: if isCountryManager();
-      allow update: if isCountryManager() && isExistingCountryManager();
-      allow delete: if isCountryManager() && isExistingCountryManager();
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Secure financial records.
+     * @description Manages access to financial records.
      * @path /financialRecords/{recordId}
-     * @allow (get) Any authenticated user can retrieve financial records.
-     * @allow (create) Country Manager can create financial records.
-     *   - auth.uid: (UID of a user with role "Country Manager")
-     * @deny (update) Regular user attempts to update a financial record.
-     *   - auth.uid: (UID of a user without sufficient permissions)
-     * @principle Role-based access control for writes.
+     * @allow (get) Any user can read financial records.
+     * @allow (list) Any user can list financial records.
+     * @deny (create) No one can create financial records.
+     * @deny (update) Only the assigned engineer can update financial records.
+     * @deny (delete) No one can delete financial records.
+     * @principle Restricts write access to financial records to assigned engineer.
      */
     match /financialRecords/{recordId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
+        allow get, list: if true;
+        allow create: if false;
+        allow update: if isAssignedEngineer(resource.data.assignedEngineerId);
+        allow delete: if false;
+    }
 
-       function getUserRole() {
-         return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      }
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-       function getUserRegion() {
-          return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.region;
-       }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
 
-       function isCountryManager() {
-          return isSignedIn() && getUserRole() == 'Country Manager';
-       }
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
 
-       function isManagerForRegion() {
-          return isSignedIn() && getUserRole() == 'Manager';
-       }
-
-       function isEngineerForRegion() {
-          return isSignedIn() && getUserRole() == 'Engineer';
-       }
-        
-      function canChangeRemarksNotesDispute() {
-        return isCountryManager() || isManagerForRegion() || isEngineerForRegion();
-      }
-
-       function isExistingFinancialRecord() {
-            return exists(/databases/$(database)/documents/financialRecords/$(recordId));
-       }
-         
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isCountryManager();
-            
-      allow update: if isExistingFinancialRecord() && (
-           isCountryManager() ||
-           (isManagerForRegion() && request.resource.data.region == getUserRegion() && (request.resource.data.remarks == resource.data.remarks) && (request.resource.data.notes == resource.data.notes)) ||
-           (isEngineerForRegion() && request.resource.data.region == getUserRegion() && (request.resource.data.dispute == resource.data.dispute) && (request.resource.data.notes == resource.data.notes))
-      );
-
-       allow delete: if isCountryManager() && isExistingFinancialRecord();
+    function isAssignedEngineer(assignedEngineerId) {
+        return isSignedIn() && request.auth.uid == assignedEngineerId;
     }
   }
 }
