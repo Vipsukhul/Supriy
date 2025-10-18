@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -339,17 +340,17 @@ export default function DatasheetPage() {
 
 interface CustomerInvoicesDialogProps {
     customer: CustomerData;
-    onSave: (customerCode: string, invoices: EnrichedInvoice[]) => void;
+    onSave: (customerCode: string, invoices: EnrichedInvoice[]) => Promise<void>;
 }
 
 function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProps) {
-    const [invoices, setInvoices] = useState<EnrichedInvoice[]>(customer.invoices);
+    const [invoices, setInvoices] = useState<EnrichedInvoice[]>([]);
     const [isOpen, setIsOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        // When the dialog is opened, sync its internal state with the latest prop from parent
         if (isOpen) {
-            setInvoices(customer.invoices);
+            setInvoices(JSON.parse(JSON.stringify(customer.invoices)));
         }
     }, [isOpen, customer.invoices]);
 
@@ -360,8 +361,10 @@ function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProp
         ));
     };
 
-    const handleSaveChanges = () => {
-        onSave(customer.customerCode, invoices);
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        await onSave(customer.customerCode, invoices);
+        setIsSaving(false);
         setIsOpen(false);
     }
     
@@ -419,7 +422,9 @@ function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProp
                     </Table>
                 </div>
                 <div className="pt-4 flex justify-end">
-                    <Button onClick={handleSaveChanges}>Save Changes</Button>
+                    <Button onClick={handleSaveChanges} disabled={isSaving}>
+                        {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>
