@@ -31,6 +31,7 @@ import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useEffect, useState } from "react";
 import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 
 const formSchema = z.object({
@@ -121,7 +122,7 @@ export default function SignupPage() {
   if (isUserLoading || user) {
     return (
         <div className="flex items-center justify-center min-h-screen">
-            <p>Loading...</p>
+            <LoadingSpinner />
         </div>
     );
   }

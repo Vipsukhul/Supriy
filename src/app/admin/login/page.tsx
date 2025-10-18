@@ -31,6 +31,7 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { doc, getDoc } from "firebase/firestore";
 import type { User } from "@/models/user.model";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 
 const formSchema = z.object({
@@ -104,7 +105,7 @@ export default function AdminLoginPage() {
   if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading...</p>
+        <LoadingSpinner />
       </div>
     );
   }

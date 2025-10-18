@@ -4,6 +4,7 @@ import { useAuth, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -24,7 +25,7 @@ export default function DashboardPage() {
   if (isUserLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading...</p>
+        <LoadingSpinner />
       </div>
     );
   }

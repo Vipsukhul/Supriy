@@ -29,6 +29,7 @@ import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { onAuthStateChanged } from "firebase/auth";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -82,7 +83,7 @@ export default function LoginPage() {
   if (isUserLoading || user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading...</p>
+        <LoadingSpinner />
       </div>
     );
   }
