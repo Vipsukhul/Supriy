@@ -51,19 +51,37 @@ export default function UploadPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="client-name">Client Name</Label>
-                <Input id="client-name" placeholder="Enter client name" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="customer-code">Customer Code</Label>
+                  <Input id="customer-code" placeholder="Enter customer code" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer-name">Customer Name</Label>
+                  <Input id="customer-name" placeholder="Enter customer name" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invoice-number">Invoice Number</Label>
+                  <Input id="invoice-number" placeholder="Enter unique invoice number" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invoice-amount">Invoice Amount</Label>
+                  <Input id="invoice-amount" type="number" placeholder="Enter invoice amount" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invoice-date">Invoice Date</Label>
+                  <Input id="invoice-date" type="date" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="outstanding-amount">Outstanding Amount</Label>
+                  <Input id="outstanding-amount" type="number" placeholder="Enter outstanding amount" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="region">Region</Label>
+                  <Input id="region" placeholder="Enter region" />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
-                <Input id="amount" type="number" placeholder="Enter amount" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="due-date">Due Date</Label>
-                <Input id="due-date" type="date" />
-              </div>
-              <Button className="w-full">Submit Manual Entry</Button>
+              <Button className="w-full mt-4">Submit Manual Entry</Button>
             </CardContent>
           </Card>
         </TabsContent>
