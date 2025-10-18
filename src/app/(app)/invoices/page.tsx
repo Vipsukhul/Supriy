@@ -21,12 +21,10 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { InvoiceSummary, MonthlySummary, EnrichedInvoiceSummary } from "@/models/invoice-summary.model";
 
-const financialYears = [
-    { value: "2026", label: "2026-2027" },
-    { value: "2025", label: "2025-2026" },
-    { value: "2024", label: "2024-2025" },
-    { value: "2023", label: "2023-2024" },
-];
+const financialYears = Array.from({ length: 15 }, (_, i) => {
+    const year = new Date().getFullYear() + 1 - i;
+    return { value: `${year}`, label: `${year}-${year + 1}` };
+});
 
 const getMonthsForYear = (startYear: number) => {
     const months = [];
@@ -85,16 +83,16 @@ const calculateSummaries = (records: (FinancialRecord & {id: string})[], custome
         });
     });
 
-    return Object.values(summaryByPeriod).map(summary => ({
-        ...summary,
-        // More complex calculations would go here if we had historical data
-        // For now, we are just showing the current month's data.
-    }));
+    return Object.values(summaryByPeriod).sort((a, b) => new Date(b.invoices[0].invoiceDate).getTime() - new Date(a.invoices[0].invoiceDate).getTime());
 };
 
 export default function InvoicesPage() {
   const firestore = useFirestore();
   const [financialYear, setFinancialYear] = useState<string>("all");
+  const [region, setRegion] = useState<string>("all");
+  const [currentMonth, setCurrentMonth] = useState<string>("");
+  const [previousMonth, setPreviousMonth] = useState<string>("");
+
 
   const financialRecordsCollectionRef = useMemoFirebase(() => collection(firestore, 'financialRecords'), [firestore]);
   const { data: records, isLoading: recordsLoading } = useCollection<FinancialRecord>(financialRecordsCollectionRef);
@@ -110,19 +108,41 @@ export default function InvoicesPage() {
     }, {} as Record<string, string>);
   }, [customers]);
 
+  const availableRegions = useMemo(() => {
+    if (!records) return [];
+    const allRegions = new Set<string>();
+    records.forEach(r => r.invoices.forEach(i => {
+        if(i.region) allRegions.add(i.region);
+    }));
+    return Array.from(allRegions);
+  }, [records]);
+  
+  const monthsForYear = useMemo(() => {
+    return financialYear && financialYear !== 'all' ? getMonthsForYear(parseInt(financialYear)) : [];
+  }, [financialYear]);
+
   const monthlySummaries = useMemo(() => {
     if (!records || !customers) return [];
     
-    const filteredRecords = financialYear && financialYear !== 'all'
-        ? records.filter(r => {
-            const startYear = parseInt(financialYear);
-            const endYear = startYear + 1;
-            return (r.year === startYear && r.month >= 4) || (r.year === endYear && r.month <= 3);
-          })
-        : records;
+    let filteredRecords = records;
+
+    if (financialYear && financialYear !== 'all') {
+        const startYear = parseInt(financialYear);
+        const endYear = startYear + 1;
+        filteredRecords = filteredRecords.filter(r => 
+            (r.year === startYear && r.month >= 4) || (r.year === endYear && r.month <= 3)
+        );
+    }
+    
+    if (region && region !== 'all') {
+        filteredRecords = filteredRecords.map(record => {
+            const invoicesInRegion = record.invoices.filter(invoice => invoice.region === region);
+            return { ...record, invoices: invoicesInRegion };
+        }).filter(record => record.invoices.length > 0);
+    }
 
     return calculateSummaries(filteredRecords, customersMap);
-  }, [records, customers, customersMap, financialYear]);
+  }, [records, customers, customersMap, financialYear, region]);
 
   const isLoading = recordsLoading || customersLoading;
 
@@ -136,7 +156,7 @@ export default function InvoicesPage() {
                   <CardTitle>Monthly Overview</CardTitle>
                   <CardDescription>A summary of invoices by month.</CardDescription>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                   <Select onValueChange={setFinancialYear} value={financialYear}>
                       <SelectTrigger className="w-[180px]">
                           <SelectValue placeholder="All Financial Years" />
@@ -148,6 +168,37 @@ export default function InvoicesPage() {
                           ))}
                       </SelectContent>
                   </Select>
+                  <Select onValueChange={setRegion} value={region}>
+                      <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="All Regions" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="all">All Regions</SelectItem>
+                          {availableRegions.map(r => (
+                              <SelectItem key={r} value={r}>{r}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                   <Select onValueChange={setCurrentMonth} value={currentMonth} disabled={!financialYear || financialYear === 'all'}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Current Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {monthsForYear.map(m => (
+                                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select onValueChange={setPreviousMonth} value={previousMonth} disabled={!financialYear || financialYear === 'all'}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Previous Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {monthsForYear.map(m => (
+                                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
               </div>
           </div>
         </CardHeader>
@@ -176,57 +227,59 @@ export default function InvoicesPage() {
                     </TableBody>
                 ) : monthlySummaries.length > 0 ? (
                     monthlySummaries.map((summary) => (
-                    <Collapsible asChild key={summary.period} tagName="tbody">
-                        <>
-                            <TableRow className="font-medium bg-transparent hover:bg-muted/50">
-                                <TableCell>
-                                    <CollapsibleTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <ChevronRight className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-90" />
-                                        </Button>
-                                    </CollapsibleTrigger>
-                                </TableCell>
-                                <TableCell>{summary.period}</TableCell>
-                                <TableCell>{summary.currentMonthInvoicesCount}</TableCell>
-                                <TableCell>{summary.previousMonthsInvoicesCount}</TableCell>
-                                <TableCell>{summary.disputedInvoicesCount}</TableCell>
-                                <TableCell>${summary.currentOutstanding.toLocaleString()}</TableCell>
-                                <TableCell>${summary.recoveredOutstanding.toLocaleString()}</TableCell>
-                                <TableCell>${summary.increasedOutstanding.toLocaleString()}</TableCell>
-                            </TableRow>
-                            <CollapsibleContent asChild>
-                                <TableRow>
-                                    <TableCell colSpan={8} className="p-0">
-                                        <div className="p-4 bg-muted/50">
-                                            <h4 className="font-semibold mb-2">Invoices for {summary.period}</h4>
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Customer Code</TableHead>
-                                                        <TableHead>Invoice #</TableHead>
-                                                        <TableHead>Invoice Amount</TableHead>
-                                                        <TableHead>Outstanding Amount</TableHead>
-                                                        <TableHead>Region</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {summary.invoices.map((invoice: EnrichedInvoiceSummary) => (
-                                                        <TableRow key={invoice.invoiceNumber}>
-                                                            <TableCell>{invoice.customerCode}</TableCell>
-                                                            <TableCell>{invoice.invoiceNumber}</TableCell>
-                                                            <TableCell>${invoice.invoiceAmount.toLocaleString()}</TableCell>
-                                                            <TableCell>${invoice.outstandingAmount.toLocaleString()}</TableCell>
-                                                            <TableCell>{invoice.region}</TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
+                    <TableBody key={summary.period}>
+                        <Collapsible asChild>
+                            <>
+                                <TableRow className="font-medium bg-transparent hover:bg-muted/50">
+                                    <TableCell>
+                                        <CollapsibleTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <ChevronRight className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-90" />
+                                            </Button>
+                                        </CollapsibleTrigger>
                                     </TableCell>
+                                    <TableCell>{summary.period}</TableCell>
+                                    <TableCell>{summary.currentMonthInvoicesCount}</TableCell>
+                                    <TableCell>{summary.previousMonthsInvoicesCount}</TableCell>
+                                    <TableCell>{summary.disputedInvoicesCount}</TableCell>
+                                    <TableCell>${summary.currentOutstanding.toLocaleString()}</TableCell>
+                                    <TableCell>${summary.recoveredOutstanding.toLocaleString()}</TableCell>
+                                    <TableCell>${summary.increasedOutstanding.toLocaleString()}</TableCell>
                                 </TableRow>
-                            </CollapsibleContent>
-                        </>
-                    </Collapsible>
+                                <CollapsibleContent asChild>
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="p-0">
+                                            <div className="p-4 bg-muted/50">
+                                                <h4 className="font-semibold mb-2">Invoices for {summary.period}</h4>
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Customer Code</TableHead>
+                                                            <TableHead>Invoice #</TableHead>
+                                                            <TableHead>Invoice Amount</TableHead>
+                                                            <TableHead>Outstanding Amount</TableHead>
+                                                            <TableHead>Region</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {summary.invoices.map((invoice: EnrichedInvoiceSummary) => (
+                                                            <TableRow key={invoice.invoiceNumber}>
+                                                                <TableCell>{invoice.customerCode}</TableCell>
+                                                                <TableCell>{invoice.invoiceNumber}</TableCell>
+                                                                <TableCell>${invoice.invoiceAmount.toLocaleString()}</TableCell>
+                                                                <TableCell>${invoice.outstandingAmount.toLocaleString()}</TableCell>
+                                                                <TableCell>{invoice.region}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                </CollapsibleContent>
+                            </>
+                        </Collapsible>
+                    </TableBody>
                     ))
                 ) : (
                     <TableBody>
