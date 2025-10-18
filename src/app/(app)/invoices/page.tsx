@@ -17,9 +17,11 @@ import { collection } from "firebase/firestore";
 import { FinancialRecord, Customer, Invoice } from "@/models/data.model";
 import { useMemoFirebase } from "@/firebase/provider";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight, Loader2, Filter } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { InvoiceSummary, MonthlySummary, EnrichedInvoiceSummary } from "@/models/invoice-summary.model";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 
 const financialYears = Array.from({ length: 15 }, (_, i) => {
     const year = new Date().getFullYear() + 1 - i;
@@ -161,50 +163,88 @@ export default function InvoicesPage() {
                   <CardTitle>Monthly Overview</CardTitle>
                   <CardDescription>A summary of invoices by month.</CardDescription>
               </div>
-              <div className="flex flex-wrap gap-2">
-                  <Select onValueChange={setFinancialYear} value={financialYear}>
-                      <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="All Financial Years" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="all">All Financial Years</SelectItem>
-                          {financialYears.map(fy => (
-                              <SelectItem key={fy.value} value={fy.value}>{fy.label}</SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-                  <Select onValueChange={setRegion} value={region}>
-                      <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="All Regions" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="all">All Regions</SelectItem>
-                          {availableRegions.map(r => (
-                              <SelectItem key={r} value={r}>{r}</SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-                   <Select onValueChange={setCurrentMonth} value={currentMonth} disabled={!financialYear || financialYear === 'all'}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Current Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {monthsForYear.map(m => (
-                                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select onValueChange={setPreviousMonth} value={previousMonth} disabled={!financialYear || financialYear === 'all'}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Previous Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {monthsForYear.map(m => (
-                                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filters
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">Filters</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Adjust the filters to refine the summary.
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
+                      <div className="grid grid-cols-3 items-center gap-4">
+                        <Label htmlFor="financial-year">Financial Year</Label>
+                        <div className="col-span-2">
+                            <Select onValueChange={setFinancialYear} value={financialYear}>
+                                <SelectTrigger id="financial-year" className="w-full">
+                                    <SelectValue placeholder="All Financial Years" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Financial Years</SelectItem>
+                                    {financialYears.map(fy => (
+                                        <SelectItem key={fy.value} value={fy.value}>{fy.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 items-center gap-4">
+                        <Label htmlFor="region">Region</Label>
+                        <div className="col-span-2">
+                            <Select onValueChange={setRegion} value={region}>
+                                <SelectTrigger id="region" className="w-full">
+                                    <SelectValue placeholder="All Regions" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Regions</SelectItem>
+                                    {availableRegions.map(r => (
+                                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 items-center gap-4">
+                        <Label htmlFor="current-month">Current Month</Label>
+                        <div className="col-span-2">
+                            <Select onValueChange={setCurrentMonth} value={currentMonth} disabled={!financialYear || financialYear === 'all'}>
+                                <SelectTrigger id="current-month" className="w-full">
+                                    <SelectValue placeholder="Current Month" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {monthsForYear.map(m => (
+                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 items-center gap-4">
+                        <Label htmlFor="previous-month">Previous Month</Label>
+                        <div className="col-span-2">
+                            <Select onValueChange={setPreviousMonth} value={previousMonth} disabled={!financialYear || financialYear === 'all'}>
+                                <SelectTrigger id="previous-month" className="w-full">
+                                    <SelectValue placeholder="Previous Month" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {monthsForYear.map(m => (
+                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
           </div>
         </CardHeader>
         <CardContent>
