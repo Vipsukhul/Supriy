@@ -34,7 +34,6 @@ import { doc, getDoc } from "firebase/firestore";
 import type { User } from "@/models/user.model";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
-
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(1, { message: "Password is required." }),
@@ -57,56 +56,55 @@ export default function AdminLoginPage() {
   });
   
   useEffect(() => {
-    // If the user is loaded and exists, check if they are an admin.
+    // If the user is loaded and confirmed to be an admin, redirect them.
+    // The admin check happens in the layout, so we just need to see if a user object exists.
     if (!isUserLoading && user) {
-      const checkAdmin = async () => {
-          const userDoc = await getDoc(doc(firestore, "users", user.uid));
-          if (userDoc.exists() && userDoc.data().role === 'admin') {
-              // If they are an admin, redirect them to the dashboard.
-              router.push('/admin/dashboard');
-          }
-      };
-      checkAdmin();
+        // A user is logged in. The layout will handle role-checking and redirection.
+        // We'll push to dashboard, and the layout will intercept if they aren't an admin.
+        router.push('/admin/dashboard');
     }
-    // If the user is not logged in, this effect does nothing, and the page will render the login form.
-  }, [user, isUserLoading, router, firestore]);
+  }, [user, isUserLoading, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
+      const loggedInUser = userCredential.user;
 
-      const userDocRef = doc(firestore, "users", user.uid);
+      const userDocRef = doc(firestore, "users", loggedInUser.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists() && userDoc.data().role === 'admin') {
           toast({
             title: "Admin Login Successful",
-            description: "Welcome back!",
+            description: "Welcome back! Redirecting...",
           });
-          // No need to redirect here, the useEffect will handle it.
+          // After successful login, the useEffect will trigger the redirect.
       } else {
+          // If the user is not an admin, sign them out immediately and show an error.
           await auth.signOut();
           toast({
             variant: "destructive",
-            title: "Login Failed",
+            title: "Access Denied",
             description: "You do not have administrative privileges.",
           });
       }
-
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: error.message || "An unexpected error occurred.",
-      });
+        let errorMessage = "An unexpected error occurred.";
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            errorMessage = "Invalid email or password.";
+        }
+        toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: errorMessage,
+        });
     } finally {
         setIsSubmitting(false);
     }
   }
   
-  // Show a loader while we are checking the user's auth state.
+  // Show a loader ONLY while Firebase is initially checking the auth state.
   if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -115,7 +113,7 @@ export default function AdminLoginPage() {
     );
   }
 
-  // If a user is already logged in, the useEffect will redirect them.
+  // If a user is logged in, the useEffect will handle redirection.
   // We can show a loader while that happens.
   if (user) {
      return (
@@ -125,7 +123,7 @@ export default function AdminLoginPage() {
     );
   }
   
-  // If no user is logged in and loading is complete, show the login form.
+  // If no user is logged in and the initial check is complete, show the login form.
   return (
      <div className="min-h-screen bg-background flex items-center justify-center p-4">
        <div className="w-full max-w-md">
