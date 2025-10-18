@@ -76,11 +76,10 @@ export default function SignupPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    let userAuth;
     try {
       // 1. Create the Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      userAuth = userCredential.user;
+      const userAuth = userCredential.user;
 
       // 2. Generate the custom user ID
       const namePrefix = values.name.substring(0, 3).toLowerCase();
@@ -119,15 +118,11 @@ export default function SignupPage() {
       console.error("Signup Error: ", error);
       let errorMessage = "An unexpected error occurred.";
        if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "This email address is already in use.";
+        errorMessage = "This email address is already in use. Please try logging in.";
       } else if (error.message) {
         errorMessage = error.message;
       }
       
-      if (userAuth) {
-        await userAuth.delete().catch(delErr => console.error("Failed to clean up auth user after signup failure:", delErr));
-      }
-
       toast({
         variant: "destructive",
         title: "Signup Failed",
