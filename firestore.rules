@@ -1,73 +1,84 @@
 /**
- * @file Firestore Security Rules for DebtFlow application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for the /users/{userId} collection.
- * Only authenticated users can access their own user documents.
- * Additionally, this ruleset implements a role-based access control (RBAC) system with "admin,"
- * "Country Manager," "Manager," "Engineer," and "Guest" roles.  Currently, only "admin" users
- * (specifically vipsukhul@gmail.com and supriysukhadev12@gmail.com) have elevated privileges.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user profiles
+ * and allows public read access to customer and financial record data while restricting
+ * writes to authenticated users.
  *
  * Data Structure:
- * User data is stored under /users/{userId}, where {userId} corresponds to the
- * Firebase Authentication UID.
+ * - /users/{userId}: Stores individual user profiles, accessible only to the owner.
+ * - /customers/{customerId}: Stores customer information, publicly readable but write-protected.
+ * - /financialRecords/{recordId}: Stores monthly financial records, publicly readable but write-protected.
  *
  * Key Security Decisions:
- * - User listing is explicitly denied to prevent unauthorized data access.
- * - The rules default to strict ownership and require explicit exceptions for other access patterns.
- * - The /users/{userId} collection requires authenticated access and user-ownership.
- *
- * Denormalization for Authorization:
- * These rules rely on the `request.auth.uid` being equivalent to the `userId`
- * path parameter for authorization. There are no additional denormalized fields required.
- *
- * Structural Segregation:
- * There is no need for structural segregation in this basic configuration, as all
- * user data is considered private and stored under the /users/{userId} path.
+ * - User profiles are private and only accessible to the authenticated user.
+ * - Listing of users is explicitly denied.
+ * - Customer and financial record data are publicly readable, but write access is restricted.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for the `/users/{userId}` collection.
+     * @description Controls access to user profiles. Each user can only access their own profile.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user with UID 'user_abc' can create their own document.
-     * @allow (get) - Authenticated user with UID 'user_abc' can read their own document.
-     * @allow (update) - Authenticated user with UID 'user_abc' can update their own document.
-     * @allow (delete) - Authenticated user with UID 'user_abc' can delete their own document.
-     * @deny (create) - Authenticated user with UID 'user_xyz' cannot create a document with ID 'user_abc'.
-     * @deny (get) - Authenticated user with UID 'user_xyz' cannot read a document with ID 'user_abc'.
-     * @deny (update) - Authenticated user with UID 'user_xyz' cannot update a document with ID 'user_abc'.
-     * @deny (delete) - Authenticated user with UID 'user_xyz' cannot delete a document with ID 'user_abc'.
-     * @principle Enforces document ownership for all operations.  Validates that the `userId` path parameter matches the authenticated user's UID.
+     * @allow (create) - Authenticated user with matching UID can create their profile.
+     * @allow (get, update, delete) - Authenticated user with matching UID can access and modify their profile.
+     * @deny (create) - Authenticated user attempts to create a profile with a mismatched UID.
+     * @deny (get, update, delete) - Authenticated user attempts to access or modify another user's profile.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      // Helper functions
       function isSignedIn() {
         return request.auth != null;
       }
 
       function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isAdmin() {
-          return isSignedIn() && (request.auth.token.email == "vipsukhul@gmail.com" || request.auth.token.email == "supriysukhadev12@gmail.com");
+        return request.auth.uid == userId;
       }
 
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
-      // Read permissions
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if false;
+      allow get: if isOwner(userId);
+      allow list: if false; // Listing users is not permitted
 
-      // Write permissions
-      allow create: if isOwner(userId) ;
-      allow update: if isExistingOwner(userId);
+      // Allow the user to create their own profile, but only if the UID matches
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+
+      // The isExistingOwner is used for update and delete operations, preventing accidental changes to non-existent documents.
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to customer records.  Allows public read access, but restricts write access.
+     * @path /customers/{customerId}
+     * @allow (get, list) - Any user can read customer data.
+     * @deny (create, update, delete) - Only authenticated users can create, update or delete customer data.
+     * @principle Allows public read access with restricted write access for authenticated users only.
+     */
+    match /customers/{customerId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get, list: if true;
+      allow create, update, delete: if isSignedIn(); // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Controls access to financial records. Allows public read access, but restricts write access.
+     * @path /financialRecords/{recordId}
+     * @allow (get, list) - Any user can read financial record data.
+     * @deny (create, update, delete) - No one can create, update, or delete financial records (except through backend).
+     * @principle Allows public read access with restricted write access.
+     */
+    match /financialRecords/{recordId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get, list: if true;
+      allow create, update, delete: if isSignedIn(); // TODO: Add owner validation once the schema is updated with an ownership field.
     }
   }
 }

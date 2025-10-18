@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -94,7 +95,7 @@ export default function AdminManagementPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                            <Avatar>
-                                <AvatarImage src={`https://picsum.photos/seed/${admin.id}/40/40`} />
+                                <AvatarImage data-ai-hint="person" src={`https://i.pravatar.cc/40?u=${admin.id}`} />
                                 <AvatarFallback>{getInitials(admin.firstName, admin.lastName)}</AvatarFallback>
                             </Avatar>
                             <div>
