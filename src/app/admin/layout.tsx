@@ -1,6 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
+import { Sidebar, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
+import { LogOut, Users, Home } from 'lucide-react';
+import AdminSignOutButton from './components/AdminSignOutButton';
+
 
 export const metadata: Metadata = {
   title: 'DebtFlow - Admin',
@@ -8,15 +13,44 @@ export const metadata: Metadata = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-       <div className="absolute top-8 left-8">
-          <Link href="/">
-            <Logo />
-          </Link>
+    <SidebarProvider>
+    <div className="flex min-h-screen">
+      <Sidebar side="left" className="w-64" collapsible="icon">
+          <SidebarGroup>
+            <SidebarGroupLabel>
+              <Logo />
+            </SidebarGroupLabel>
+          </SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <Link href="/admin/dashboard">
+                <SidebarMenuButton tooltip="Dashboard">
+                  <Home />
+                  Dashboard
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <Link href="/admin/users">
+                <SidebarMenuButton tooltip="User Management">
+                  <Users />
+                  User Management
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        <div className="mt-auto">
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <AdminSignOutButton />
+                </SidebarMenuItem>
+            </SidebarMenu>
         </div>
-      <div className="w-full max-w-md">
+      </Sidebar>
+      <main className="flex-1">
         {children}
-      </div>
+      </main>
     </div>
+    </SidebarProvider>
   );
 }

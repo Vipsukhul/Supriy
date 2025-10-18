@@ -28,6 +28,8 @@ import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { onAuthStateChanged } from "firebase/auth";
+import Link from "next/link";
+import { Logo } from "@/components/logo";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -89,68 +91,77 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-headline">Admin Panel</CardTitle>
-        <CardDescription>
-          Please login to continue.
-        </CardDescription>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="admin@example.com"
-                        {...field}
-                        className="pl-10"
-                        disabled={isSubmitting}
-                      />
-                    </FormControl>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        {...field}
-                        className="pl-10"
-                        disabled={isSubmitting}
-                      />
-                    </FormControl>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Logging in...' : 'Login'}
-            </Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+     <div className="min-h-screen bg-background flex items-center justify-center p-4">
+       <div className="w-full max-w-md">
+          <div className="flex justify-center mb-8">
+              <Link href="/">
+                <Logo />
+              </Link>
+          </div>
+          <Card className="w-full">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-headline">Admin Panel</CardTitle>
+              <CardDescription>
+                Please login to continue.
+              </CardDescription>
+            </CardHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)}>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="admin@example.com"
+                              {...field}
+                              className="pl-10"
+                              disabled={isSubmitting}
+                            />
+                          </FormControl>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="••••••••"
+                              {...field}
+                              className="pl-10"
+                              disabled={isSubmitting}
+                            />
+                          </FormControl>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? 'Logging in...' : 'Login'}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Form>
+          </Card>
+        </div>
+     </div>
   );
 }

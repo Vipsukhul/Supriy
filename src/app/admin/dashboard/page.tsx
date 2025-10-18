@@ -1,13 +1,12 @@
 "use client";
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
 
 export default function AdminDashboardPage() {
   const { user, isUserLoading } = useUser();
-  const auth = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -15,11 +14,6 @@ export default function AdminDashboardPage() {
       router.push("/admin/login");
     }
   }, [user, isUserLoading, router]);
-
-  const handleSignOut = async () => {
-    await auth.signOut();
-    router.push("/admin/login");
-  };
 
   if (isUserLoading || !user) {
     return (
@@ -30,11 +24,25 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4 text-center">
-      <h1 className="text-2xl font-bold">Welcome to the Admin Dashboard</h1>
-      <p>You are logged in as {user.email}</p>
-      <p className="text-sm text-muted-foreground">This is a protected area for administrators.</p>
-      <Button onClick={handleSignOut}>Sign Out</Button>
+    <div className="flex-1 space-y-4 p-8 pt-6">
+        <div className="flex items-center justify-between space-y-2">
+            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                        Welcome
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">Admin</div>
+                    <p className="text-xs text-muted-foreground">
+                        You are logged in as {user.email}
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
     </div>
   );
 }
