@@ -1,4 +1,6 @@
 
+export type Role = "admin" | "Country Manager" | "Manager" | "Engineer" | "Guest";
+
 export interface User {
     id: string;
     firstName: string;
@@ -7,4 +9,5 @@ export interface User {
     mobileNumber: string;
     region: string;
     signUpDate: string;
+    role: Role;
 }

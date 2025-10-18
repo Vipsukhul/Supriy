@@ -29,7 +29,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc } from "firebase/firestore";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useEffect, useState } from "react";
-import type { User } from "@/models/user.model";
+import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -44,6 +44,8 @@ const formSchema = z.object({
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
+
+const adminEmails = ["vipsukhul@gmail.com", "supriysukhadev12@gmail.com"];
 
 export default function SignupPage() {
   const router = useRouter();
@@ -79,6 +81,8 @@ export default function SignupPage() {
 
       const [firstName, ...lastNameParts] = values.name.split(' ');
       const lastName = lastNameParts.join(' ');
+      
+      const role: Role = adminEmails.includes(values.email) ? 'admin' : 'Guest';
 
       const newUser: User = {
         id: userAuth.uid,
@@ -88,6 +92,7 @@ export default function SignupPage() {
         mobileNumber: values.mobileNumber,
         region: values.region,
         signUpDate: new Date().toISOString(),
+        role: role
       };
 
       const userDocRef = doc(firestore, "users", userAuth.uid);
@@ -113,7 +118,7 @@ export default function SignupPage() {
     }
   }
 
-  if (isUserLoading && user) { // check for user here to prevent showing signup page to logged in user
+  if (isUserLoading || user) {
     return (
         <div className="flex items-center justify-center min-h-screen">
             <p>Loading...</p>

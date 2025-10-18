@@ -35,6 +35,11 @@
           "type": "string",
           "description": "The date and time the user signed up.",
           "format": "date-time"
+        },
+        "role": {
+            "type": "string",
+            "description": "The role of the user, determining their permissions.",
+            "enum": ["admin", "Country Manager", "Manager", "Engineer", "Guest"]
         }
       },
       "required": [
@@ -44,7 +49,8 @@
         "email",
         "mobileNumber",
         "region",
-        "signUpDate"
+        "signUpDate",
+        "role"
       ]
     }
   },

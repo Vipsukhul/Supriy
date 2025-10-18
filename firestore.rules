@@ -1,64 +1,73 @@
 /**
  * @file Firestore Security Rules for DebtFlow application.
  *
- * @core_philosophy This ruleset enforces a strict user-ownership model. Each user can only
- *                read and write their own data stored under their unique user ID.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for the /users/{userId} collection.
+ * Only authenticated users can access their own user documents.
+ * Additionally, this ruleset implements a role-based access control (RBAC) system with "admin,"
+ * "Country Manager," "Manager," "Engineer," and "Guest" roles.  Currently, only "admin" users
+ * (specifically vipsukhul@gmail.com and supriysukhadev12@gmail.com) have elevated privileges.
  *
- * @data_structure All user data is stored in the `/users/{userId}` collection, where
- *                 `{userId}` corresponds to the Firebase Authentication UID.
+ * Data Structure:
+ * User data is stored under /users/{userId}, where {userId} corresponds to the
+ * Firebase Authentication UID.
  *
- * @key_security_decisions
- *   - User listing is disallowed to protect user privacy.
- *   - Write access is strictly limited to the authenticated user owning the document.
- *   - Data consistency between the path and document ID is enforced on creation and updates.
+ * Key Security Decisions:
+ * - User listing is explicitly denied to prevent unauthorized data access.
+ * - The rules default to strict ownership and require explicit exceptions for other access patterns.
+ * - The /users/{userId} collection requires authenticated access and user-ownership.
  *
- * @denormalization_for_authorization Not applicable in this simple user-based structure.
+ * Denormalization for Authorization:
+ * These rules rely on the `request.auth.uid` being equivalent to the `userId`
+ * path parameter for authorization. There are no additional denormalized fields required.
+ *
+ * Structural Segregation:
+ * There is no need for structural segregation in this basic configuration, as all
+ * user data is considered private and stored under the /users/{userId} path.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for documents in the /users/{userId} collection.
-     *              Each user can only read and write their own document.
+     * @description Enforces user-ownership for the `/users/{userId}` collection.
      * @path /users/{userId}
-     * @allow (create) User 'user_abc' with id 'user_abc' can create their own document.
-     * @allow (get) User 'user_abc' can read their own document.
-     * @allow (update) User 'user_abc' can update their own document.
-     * @allow (delete) User 'user_abc' can delete their own document.
-     * @deny (create) User 'user_abc' cannot create a document with id 'user_xyz'.
-     * @deny (get) User 'user_abc' cannot read document 'user_xyz'.
-     * @deny (update) User 'user_abc' cannot update document 'user_xyz'.
-     * @deny (delete) User 'user_abc' cannot delete document 'user_xyz'.
-     * @principle Enforces document ownership for all operations. Validates relational integrity
-     *            between the path and the document's `id` field.
+     * @allow (create) - Authenticated user with UID 'user_abc' can create their own document.
+     * @allow (get) - Authenticated user with UID 'user_abc' can read their own document.
+     * @allow (update) - Authenticated user with UID 'user_abc' can update their own document.
+     * @allow (delete) - Authenticated user with UID 'user_abc' can delete their own document.
+     * @deny (create) - Authenticated user with UID 'user_xyz' cannot create a document with ID 'user_abc'.
+     * @deny (get) - Authenticated user with UID 'user_xyz' cannot read a document with ID 'user_abc'.
+     * @deny (update) - Authenticated user with UID 'user_xyz' cannot update a document with ID 'user_abc'.
+     * @deny (delete) - Authenticated user with UID 'user_xyz' cannot delete a document with ID 'user_abc'.
+     * @principle Enforces document ownership for all operations.  Validates that the `userId` path parameter matches the authenticated user's UID.
      */
     match /users/{userId} {
-      allow get: if false;
+      // Helper functions
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isAdmin() {
+          return isSignedIn() && (request.auth.token.email == "vipsukhul@gmail.com" || request.auth.token.email == "supriysukhadev12@gmail.com");
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Read permissions
+      allow get: if isOwner(userId) || isAdmin();
       allow list: if false;
 
-      match /{documentId} {
-        // Helper function to check if the user is signed in
-        function isSignedIn() {
-          return request.auth != null;
-        }
-
-        // Helper function to check if the authenticated user is the owner of the resource.
-        function isOwner(userId) {
-          return request.auth.uid == userId;
-        }
-
-        // Helper function to check if the authenticated user is the existing owner of the resource.
-        function isExistingOwner(userId) {
-          return isOwner(userId) && resource != null;
-        }
-
-        allow get: if isOwner(userId);
-
-        allow create: if isOwner(userId);
-        allow update: if isExistingOwner(userId);
-        allow delete: if isExistingOwner(userId);
-      }
+      // Write permissions
+      allow create: if isOwner(userId) ;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
   }
 }

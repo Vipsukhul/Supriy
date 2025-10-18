@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { User } from "@/models/user.model";
 import { useMemoFirebase } from "@/firebase/provider";
+import { Badge } from "@/components/ui/badge";
 
 export default function UserManagementPage() {
   const { user, isUserLoading } = useUser();
@@ -22,7 +23,7 @@ export default function UserManagementPage() {
   const firestore = useFirestore();
 
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading: usersLoading } = useCollection<User>(usersCollectionRef);
+  const { data: users, isLoading: usersLoading, error } = useCollection<User>(usersCollectionRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -60,6 +61,7 @@ export default function UserManagementPage() {
               <TableHead>Email</TableHead>
               <TableHead>Mobile Number</TableHead>
               <TableHead>Region</TableHead>
+              <TableHead>Role</TableHead>
               <TableHead>Sign Up Date</TableHead>
             </TableRow>
           </TableHeader>
@@ -71,13 +73,18 @@ export default function UserManagementPage() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.mobileNumber}</TableCell>
                   <TableCell>{user.region}</TableCell>
+                  <TableCell>
+                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                      {user.role}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{new Date(user.signUpDate).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  No users found.
+                <TableCell colSpan={6} className="h-24 text-center">
+                  {error ? 'You do not have permission to view users.' : 'No users found.'}
                 </TableCell>
               </TableRow>
             )}

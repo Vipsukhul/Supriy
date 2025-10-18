@@ -1,27 +1,10 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth, useUser } from "@/firebase";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useUser } from "@/firebase";
 
 export default function AdminDashboardPage() {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push("/admin/login");
-    }
-  }, [user, isUserLoading, router]);
-
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Loading...</p>
-      </div>
-    );
-  }
+  const { user } = useUser();
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
@@ -38,7 +21,7 @@ export default function AdminDashboardPage() {
                 <CardContent>
                     <div className="text-2xl font-bold">Admin</div>
                     <p className="text-xs text-muted-foreground">
-                        You are logged in as {user.email}
+                        You are logged in as {user?.email}
                     </p>
                 </CardContent>
             </Card>

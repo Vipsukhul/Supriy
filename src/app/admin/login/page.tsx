@@ -23,13 +23,15 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Mail, Lock } from "lucide-react";
-import { useAuth, useUser } from "@/firebase";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
+import { useAuth, useUser, useFirestore } from "@/firebase";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { onAuthStateChanged } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { doc, getDoc } from "firebase/firestore";
+import type { User } from "@/models/user.model";
+
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -39,6 +41,7 @@ const formSchema = z.object({
 export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,36 +56,52 @@ export default function AdminLoginPage() {
   
   useEffect(() => {
     if (!isUserLoading && user) {
-      // For now, we assume any logged in user is an admin for this panel.
-      // In the future, you would add role checking here.
-      router.push('/admin/dashboard');
+        const checkAdmin = async () => {
+            const userDoc = await getDoc(doc(firestore, "users", user.uid));
+            if (userDoc.exists() && userDoc.data().role === 'admin') {
+                router.push('/admin/dashboard');
+            }
+        };
+        checkAdmin();
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, firestore]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        if (user) {
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
+
+      const userDocRef = doc(firestore, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists() && userDoc.data().role === 'admin') {
           toast({
             title: "Admin Login Successful",
             description: "Welcome back!",
           });
-          unsubscribe();
-        }
-      });
-      initiateEmailSignIn(auth, values.email, values.password);
+          router.push('/admin/dashboard');
+      } else {
+          await auth.signOut();
+          toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: "You do not have administrative privileges.",
+          });
+      }
+
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Login Failed",
         description: error.message || "An unexpected error occurred.",
       });
-      setIsSubmitting(false);
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
-  if (isUserLoading || user) {
+  if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p>Loading...</p>
