@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { Sidebar, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel, SidebarProvider } from '@/components/ui/sidebar';
-import { LogOut, Users, Home } from 'lucide-react';
+import { Shield, Users, Home } from 'lucide-react';
 import AdminSignOutButton from './components/AdminSignOutButton';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -58,7 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   
   return (
     <SidebarProvider>
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-muted/40">
       <Sidebar side="left" className="w-64" collapsible="icon">
           <SidebarGroup>
             <SidebarGroupLabel>
@@ -73,6 +73,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   Dashboard
                 </SidebarMenuButton>
               </Link>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+                <Link href="/admin/management">
+                    <SidebarMenuButton tooltip="Admin Management">
+                        <Shield />
+                        Admin Management
+                    </SidebarMenuButton>
+                </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <Link href="/admin/users">
@@ -91,7 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </SidebarMenu>
         </div>
       </Sidebar>
-      <main className="flex-1">
+      <main className="flex-1 flex flex-col">
         {children}
       </main>
     </div>
