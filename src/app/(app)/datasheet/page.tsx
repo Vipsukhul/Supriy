@@ -429,5 +429,3 @@ function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProp
         </Dialog>
     )
 }
-
-    
