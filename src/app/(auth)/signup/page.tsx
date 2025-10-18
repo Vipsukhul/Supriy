@@ -23,7 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Mail, Lock, User as UserIcon } from "lucide-react";
+import { Mail, Lock, User as UserIcon, Phone, Globe } from "lucide-react";
 import { useAuth, useFirestore, useUser } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -36,6 +36,8 @@ import { useToast } from "@/hooks/use-toast";
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
+  mobileNumber: z.string().min(10, { message: "Mobile number must be at least 10 digits." }),
+  region: z.string().min(2, { message: "Region is required." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
@@ -56,6 +58,8 @@ export default function SignupPage() {
     defaultValues: {
       name: "",
       email: "",
+      mobileNumber: "",
+      region: "",
       password: "",
       confirmPassword: "",
     },
@@ -81,6 +85,8 @@ export default function SignupPage() {
         firstName,
         lastName,
         email: values.email,
+        mobileNumber: values.mobileNumber,
+        region: values.region,
         signUpDate: new Date().toISOString(),
       };
 
@@ -159,6 +165,48 @@ export default function SignupPage() {
                       <Input
                         type="email"
                         placeholder="m@example.com"
+                        {...field}
+                        className="pl-10"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="mobileNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mobile Number</FormLabel>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <FormControl>
+                      <Input
+                        placeholder="123-456-7890"
+                        {...field}
+                        className="pl-10"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Region</FormLabel>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <FormControl>
+                      <Input
+                        placeholder="e.g. California, USA"
                         {...field}
                         className="pl-10"
                         disabled={isSubmitting}
