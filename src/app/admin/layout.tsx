@@ -13,6 +13,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import type { User } from '@/models/user.model';
+import AdminHeader from './components/AdminHeader';
+
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -39,7 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // 3. If no user is logged in at all, redirect to the admin login page.
     if (!user) {
       router.replace("/admin/login");
-      setAuthStatus('loading'); // Show loader during redirect
+      setAuthStatus('unauthorized'); // Show loader during redirect
       return;
     }
 
@@ -140,6 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </Sidebar>
           <main className="flex-1 flex flex-col">
+            <AdminHeader />
             {children}
           </main>
         </div>
