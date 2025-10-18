@@ -1,5 +1,8 @@
 
-// Flows will be imported for their side effects in this file.
-import './flows/set-role-flow';
+// This file is currently not importing any flows.
+// When you create flows in src/ai/flows, import them here
+// for them to be available in the development environment.
 
+// Example:
+// import './flows/my-awesome-flow';
     

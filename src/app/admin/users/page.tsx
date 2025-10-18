@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { setRole } from "@/ai/flows/set-role-flow";
 import { useToast } from "@/hooks/use-toast";
 
 export default function UserManagementPage() {
@@ -39,10 +38,6 @@ export default function UserManagementPage() {
   
   const handleRoleChange = async (userId: string, newRole: Role) => {
     try {
-        // This Genkit flow is a server-side operation to securely set a custom claim.
-        await setRole({ userId, role: newRole });
-        
-        // Also update the role in the Firestore document for display purposes.
         const userDocRef = doc(firestore, "users", userId);
         await updateDoc(userDocRef, { role: newRole });
 
@@ -211,5 +206,3 @@ export default function UserManagementPage() {
     </>
   );
 }
-
-    
