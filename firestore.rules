@@ -1,93 +1,95 @@
+/**
+ * @fileoverview Firestore Security Rules for DebtFlow application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles,
+ * allows open reads on customer and financial record data, and restricts
+ * counter modification to prevent ID conflicts.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores individual user profiles, accessible only to the
+ *   corresponding authenticated user.
+ * - /customers/{customerId}: Stores customer data, publicly readable, but
+ *   create, update, and delete operations are not allowed.
+ * - /financialRecords/{recordId}: Stores financial records, publicly readable,
+ *   but create, update, and delete operations are not allowed.
+ * - /counters/users: Stores the user ID counter; write access is denied.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed to protect user privacy.
+ * - Customer and financial record data is publicly readable for reporting.
+ * - The user ID counter is locked down to prevent unauthorized modification.
+ *
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access control for user profiles.  A user can only
-     * read and write their own data. Listing all users is disallowed.
+     * @description Enforces owner-only access to user profiles.
      * @path /users/{userId}
-     * @allow (create) User with UID 'user_abc' can create their own profile.
-     * @allow (get, update, delete) User with UID 'user_abc' can read/write their profile.
-     * @deny (create, get, update, delete) User with UID 'user_xyz' cannot access user 'user_abc' profile.
-     * @deny (list) No one can list all users.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - User A can create their own profile.
+     *      Request: auth.uid = "userA", resource.data.uid = "userA"
+     * @allow (get, update, delete) - User A can access their own profile.
+     *      Request: auth.uid = "userA", path = "/users/userA"
+     * @deny (create) - User A cannot create a profile for User B.
+     *      Request: auth.uid = "userA", resource.data.uid = "userB"
+     * @deny (get, update, delete) - User A cannot access User B's profile.
+     *      Request: auth.uid = "userA", path = "/users/userB"
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
 
       function isSignedIn() {
         return request.auth != null;
       }
-
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Manages access control for customer data.
-     * Customer data is publicly readable but requires authentication for create,
-     * update, and delete operations.
+     * @description Allows public read access to customer data.
      * @path /customers/{customerId}
-     * @allow (get, list) Any user can read customer data.
-     * @allow (create, update, delete) Authenticated users can create, update and delete customer data.
-     * @deny (create, update, delete) Unauthenticated users cannot modify customer data.
-     * @principle Allows public read access with owner-only writes.
+     * @allow (get, list) - Any user can read customer data.
+     *      Request: auth.uid = null
+     * @deny (create, update, delete) - No user can modify customer data.
+     *      Request: auth.uid = "userA"
+     * @principle Allows public read access.
      */
     match /customers/{customerId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Manages access control for financial records.
-     * Financial records are publicly readable but require authentication for create,
-     * update, and delete operations.
+     * @description Allows public read access to financial records.
      * @path /financialRecords/{recordId}
-     * @allow (get, list) Any user can read financial record data.
-     * @allow (create, update, delete) Authenticated users can create, update and delete financial record data.
-     * @deny (create, update, delete) Unauthenticated users cannot modify financial record data.
-     * @principle Allows public read access with owner-only writes.
+     * @allow (get, list) - Any user can read financial records.
+     *      Request: auth.uid = null
+     * @deny (create, update, delete) - No user can modify financial records.
+     *      Request: auth.uid = "userA"
+     * @principle Allows public read access.
      */
     match /financialRecords/{recordId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Protects the counter document for generating sequential user IDs.
-     * Only authenticated users can create, update, or delete the counter.
+     * @description Restricts access to the user ID counter.
      * @path /counters/users
-     * @allow (get) Any user can read the counter.
-     * @allow (create, update, delete) Authenticated users can modify the counter.
-     * @deny (create, update, delete) Unauthenticated users cannot modify the counter.
-     * @principle Requires authentication for counter management.
+     * @deny (get, list, create, update, delete) - No user can access or modify the user ID counter.
+     *      Request: auth.uid = "userA"
+     * @principle Prevents unauthorized modification of the user ID counter.
      */
     match /counters/users {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      allow get: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow get, list, create, update, delete: if false;
     }
   }
 }
