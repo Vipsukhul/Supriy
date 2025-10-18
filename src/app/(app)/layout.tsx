@@ -12,7 +12,7 @@ import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu } from 'luci
 import { Logo } from '@/components/logo';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -92,12 +92,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <span className="sr-only">Toggle navigation menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="flex flex-col">
-                <div className="flex h-14 items-center border-b px-6">
-                  <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-                    <Logo />
-                  </Link>
-                </div>
+              <SheetContent side="left" className="flex flex-col p-0">
+                 <SheetHeader className="h-14 flex flex-row items-center border-b px-6">
+                   <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                      <Logo />
+                    </Link>
+                    <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                 </SheetHeader>
                 <div className="flex-1 overflow-auto py-2">
                     <NavLinks />
                 </div>
