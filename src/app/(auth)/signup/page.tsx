@@ -32,7 +32,6 @@ import { useEffect, useState } from "react";
 import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { setRole } from "@/ai/flows/set-role-flow";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -100,22 +99,14 @@ export default function SignupPage() {
       const userDocRef = doc(firestore, "users", userAuth.uid);
       await setDoc(userDocRef, newUser);
 
-      // Set custom claim
-      const setResult = await setRole({ uid: userAuth.uid, role });
-      if (!setResult.success) {
-          throw new Error(setResult.message || 'Could not set user role claim.');
-      }
-      
-      // Sign the user out to force a token refresh on next login
-      await auth.signOut();
-
       toast({
         title: "Account Created",
-        description: "Your account is ready. Please log in to continue.",
+        description: "Your account is ready. You will be redirected to the dashboard.",
         duration: 5000,
       });
 
-      router.push('/login');
+      // No need to sign out, user is already logged in and can proceed
+      router.push('/dashboard');
 
     } catch (error: any) {
       console.error("Signup Error: ", error);
@@ -126,7 +117,7 @@ export default function SignupPage() {
         errorMessage = error.message;
       }
       
-      // Cleanup the user if something went wrong after creation
+      // Cleanup the auth user if something went wrong after creation
       if (userAuth) {
         await userAuth.delete().catch(delErr => console.error("Failed to clean up auth user after signup failure:", delErr));
       }
@@ -311,3 +302,5 @@ export default function SignupPage() {
     </Card>
   );
 }
+
+    
