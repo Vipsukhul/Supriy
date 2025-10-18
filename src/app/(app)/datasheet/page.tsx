@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Eye, Loader2 } from "lucide-react";
@@ -77,6 +77,8 @@ export default function DatasheetPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>("");
 
   const [customerData, setCustomerData] = useState<Record<string, CustomerData>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   const financialRecordsQuery = useMemoFirebase(() => {
     if (!firestore || !financialYear || !selectedMonth) return null;
@@ -142,6 +144,7 @@ export default function DatasheetPage() {
             });
         }
         setCustomerData(newCustomerData);
+        setCurrentPage(1); // Reset to first page on data change
     }
   }, [records, customersMap]);
 
@@ -217,6 +220,14 @@ export default function DatasheetPage() {
 
   const isLoading = recordsLoading || customersLoading;
   const displayData = useMemo(() => Object.values(customerData), [customerData]);
+  
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return displayData.slice(startIndex, endIndex);
+  }, [displayData, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(displayData.length / itemsPerPage);
 
   return (
     <div className="space-y-4">
@@ -277,8 +288,8 @@ export default function DatasheetPage() {
                       <Loader2 className="mx-auto h-8 w-8 animate-spin" />
                     </TableCell>
                   </TableRow>
-                ) : displayData && displayData.length > 0 ? (
-                  displayData.map((item) => (
+                ) : paginatedData && paginatedData.length > 0 ? (
+                  paginatedData.map((item) => (
                     <TableRow key={item.customerCode}>
                       <TableCell className="font-medium">{item.customerCode}</TableCell>
                       <TableCell>{customersMap[item.customerCode] || item.customerName}</TableCell>
@@ -332,6 +343,32 @@ export default function DatasheetPage() {
             </Table>
           </div>
         </CardContent>
+        <CardFooter>
+            <div className="flex items-center justify-between w-full">
+                <div className="text-xs text-muted-foreground">
+                    Showing {paginatedData.length} of {displayData.length} entries.
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        Previous
+                    </Button>
+                    <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages || displayData.length === 0}
+                    >
+                        Next
+                    </Button>
+                </div>
+            </div>
+        </CardFooter>
       </Card>
     </div>
   );
@@ -429,3 +466,5 @@ function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProp
         </Dialog>
     )
 }
+
+    

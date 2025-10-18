@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection } from "firebase/firestore";
@@ -99,7 +99,8 @@ export default function InvoicesPage() {
   const [region, setRegion] = useState<string>("all");
   const [currentMonth, setCurrentMonth] = useState<string>("");
   const [previousMonth, setPreviousMonth] = useState<string>("");
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   const financialRecordsCollectionRef = useMemoFirebase(() => collection(firestore, 'financialRecords'), [firestore]);
   const { data: records, isLoading: recordsLoading } = useCollection<FinancialRecord>(financialRecordsCollectionRef);
@@ -150,7 +151,18 @@ export default function InvoicesPage() {
 
     return calculateSummaries(filteredRecords, customersMap);
   }, [records, customers, customersMap, financialYear, region]);
+  
+  useEffect(() => {
+      setCurrentPage(1);
+  }, [financialYear, region]);
 
+  const paginatedSummaries = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return monthlySummaries.slice(startIndex, endIndex);
+  }, [monthlySummaries, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(monthlySummaries.length / itemsPerPage);
   const isLoading = recordsLoading || customersLoading;
 
   return (
@@ -270,8 +282,8 @@ export default function InvoicesPage() {
                             </TableCell>
                         </TableRow>
                     </TableBody>
-                ) : monthlySummaries.length > 0 ? (
-                    monthlySummaries.map((summary) => (
+                ) : paginatedSummaries.length > 0 ? (
+                    paginatedSummaries.map((summary) => (
                     <Collapsible asChild key={summary.period}>
                         <TableBody>
                                 <TableRow className="font-medium bg-transparent hover:bg-muted/50">
@@ -336,7 +348,35 @@ export default function InvoicesPage() {
             </Table>
           </div>
         </CardContent>
+        <CardFooter>
+            <div className="flex items-center justify-between w-full">
+                <div className="text-xs text-muted-foreground">
+                    Showing {paginatedSummaries.length} of {monthlySummaries.length} entries.
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        Previous
+                    </Button>
+                    <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages || monthlySummaries.length === 0}
+                    >
+                        Next
+                    </Button>
+                </div>
+            </div>
+        </CardFooter>
       </Card>
     </div>
   );
 }
+
+    
