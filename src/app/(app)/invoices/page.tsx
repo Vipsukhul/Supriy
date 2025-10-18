@@ -166,75 +166,77 @@ export default function InvoicesPage() {
                   <TableHead>Increased Outstanding</TableHead>
                 </TableRow>
               </TableHeader>
-                <TableBody>
-                    {isLoading ? (
+                {isLoading ? (
+                    <TableBody>
                         <TableRow>
                             <TableCell colSpan={8} className="h-24 text-center">
                                 <Loader2 className="mx-auto h-8 w-8 animate-spin" />
                             </TableCell>
                         </TableRow>
-                    ) : monthlySummaries.length > 0 ? (
-                        monthlySummaries.map((summary) => (
-                        <Collapsible asChild key={summary.period}>
-                            <Fragment>
-                                <TableRow className="font-medium">
-                                    <TableCell>
-                                        <CollapsibleTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <ChevronRight className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-90" />
-                                            </Button>
-                                        </CollapsibleTrigger>
-                                    </TableCell>
-                                    <TableCell>{summary.period}</TableCell>
-                                    <TableCell>{summary.currentMonthInvoicesCount}</TableCell>
-                                    <TableCell>{summary.previousMonthsInvoicesCount}</TableCell>
-                                    <TableCell>{summary.disputedInvoicesCount}</TableCell>
-                                    <TableCell>${summary.currentOutstanding.toLocaleString()}</TableCell>
-                                    <TableCell>${summary.recoveredOutstanding.toLocaleString()}</TableCell>
-                                    <TableCell>${summary.increasedOutstanding.toLocaleString()}</TableCell>
-                                </TableRow>
-                                <CollapsibleContent asChild>
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="p-0">
-                                            <div className="p-4 bg-muted/50">
-                                                <h4 className="font-semibold mb-2">Invoices for {summary.period}</h4>
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead>Customer Code</TableHead>
-                                                            <TableHead>Invoice #</TableHead>
-                                                            <TableHead>Invoice Amount</TableHead>
-                                                            <TableHead>Outstanding Amount</TableHead>
-                                                            <TableHead>Region</TableHead>
+                    </TableBody>
+                ) : monthlySummaries.length > 0 ? (
+                    monthlySummaries.map((summary) => (
+                    <Collapsible asChild key={summary.period} tagName="tbody">
+                        <>
+                            <TableRow className="font-medium bg-transparent hover:bg-muted/50">
+                                <TableCell>
+                                    <CollapsibleTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <ChevronRight className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-90" />
+                                        </Button>
+                                    </CollapsibleTrigger>
+                                </TableCell>
+                                <TableCell>{summary.period}</TableCell>
+                                <TableCell>{summary.currentMonthInvoicesCount}</TableCell>
+                                <TableCell>{summary.previousMonthsInvoicesCount}</TableCell>
+                                <TableCell>{summary.disputedInvoicesCount}</TableCell>
+                                <TableCell>${summary.currentOutstanding.toLocaleString()}</TableCell>
+                                <TableCell>${summary.recoveredOutstanding.toLocaleString()}</TableCell>
+                                <TableCell>${summary.increasedOutstanding.toLocaleString()}</TableCell>
+                            </TableRow>
+                            <CollapsibleContent asChild>
+                                <TableRow>
+                                    <TableCell colSpan={8} className="p-0">
+                                        <div className="p-4 bg-muted/50">
+                                            <h4 className="font-semibold mb-2">Invoices for {summary.period}</h4>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Customer Code</TableHead>
+                                                        <TableHead>Invoice #</TableHead>
+                                                        <TableHead>Invoice Amount</TableHead>
+                                                        <TableHead>Outstanding Amount</TableHead>
+                                                        <TableHead>Region</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {summary.invoices.map((invoice: EnrichedInvoiceSummary) => (
+                                                        <TableRow key={invoice.invoiceNumber}>
+                                                            <TableCell>{invoice.customerCode}</TableCell>
+                                                            <TableCell>{invoice.invoiceNumber}</TableCell>
+                                                            <TableCell>${invoice.invoiceAmount.toLocaleString()}</TableCell>
+                                                            <TableCell>${invoice.outstandingAmount.toLocaleString()}</TableCell>
+                                                            <TableCell>{invoice.region}</TableCell>
                                                         </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {summary.invoices.map((invoice: EnrichedInvoiceSummary) => (
-                                                            <TableRow key={invoice.invoiceNumber}>
-                                                                <TableCell>{invoice.customerCode}</TableCell>
-                                                                <TableCell>{invoice.invoiceNumber}</TableCell>
-                                                                <TableCell>${invoice.invoiceAmount.toLocaleString()}</TableCell>
-                                                                <TableCell>${invoice.outstandingAmount.toLocaleString()}</TableCell>
-                                                                <TableCell>{invoice.region}</TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                </CollapsibleContent>
-                            </Fragment>
-                        </Collapsible>
-                        ))
-                    ) : (
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            </CollapsibleContent>
+                        </>
+                    </Collapsible>
+                    ))
+                ) : (
+                    <TableBody>
                         <TableRow>
                             <TableCell colSpan={8} className="h-24 text-center">
                             No data to display.
                             </TableCell>
                         </TableRow>
-                    )}
-                </TableBody>
+                    </TableBody>
+                )}
             </Table>
           </div>
         </CardContent>
