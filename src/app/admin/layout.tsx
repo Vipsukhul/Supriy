@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
+import type { User } from '@/models/user.model';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -23,42 +24,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized'>('loading');
 
   useEffect(() => {
-    // Let the login page render without any checks.
+    // 1. If we are on the login page, do nothing. Let it render.
     if (pathname === '/admin/login') {
-      setAuthStatus('unauthorized'); // Effectively, don't render the protected layout.
+      setAuthStatus('unauthorized'); // Allows the login page to be rendered
       return;
     }
 
-    // If Firebase auth is still loading, wait.
+    // 2. If Firebase auth is still loading, wait.
     if (isUserLoading) {
       setAuthStatus('loading');
       return;
     }
     
-    // If no user is logged in, redirect to login page.
+    // 3. If no user is logged in at all, redirect to the admin login page.
     if (!user) {
       router.replace("/admin/login");
-      // Set status to loading to show spinner during redirect.
-      setAuthStatus('loading');
+      setAuthStatus('loading'); // Show loader during redirect
       return;
     }
 
-    // A user is logged in. Now, check if they are an admin.
+    // 4. A user is logged in. Now, check their role from Firestore.
     const checkAdminRole = async () => {
       try {
         const userDocRef = doc(firestore, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
+        
+        const userData = userDoc.data() as User | undefined;
 
-        if (userDoc.exists() && userDoc.data().role === 'admin') {
+        if (userDoc.exists() && userData?.role === 'admin') {
           setAuthStatus('authorized');
         } else {
+          // If they don't have the admin role, show error and redirect.
           setAuthStatus('unauthorized');
           toast({
             variant: "destructive",
             title: "Access Denied",
             description: "You do not have administrative privileges.",
           });
-          // Redirect to a non-admin page.
           router.replace('/dashboard'); 
         }
       } catch (error) {
@@ -67,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         toast({
             variant: "destructive",
             title: "Error",
-            description: "Could not verify user role.",
+            description: "Could not verify your user role.",
         });
         router.replace('/dashboard');
       }
@@ -76,13 +78,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     checkAdminRole();
   }, [user, isUserLoading, firestore, router, pathname, toast]);
 
-  // If we are on the login page, just render the children.
+  // Render based on authorization status
+
+  // Case 1: On the login page, just render the page itself.
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
   
-  // While checking auth state or if redirecting, show a full-page loader.
-  if (authStatus !== 'authorized') {
+  // Case 2: Still loading or checking auth. Show a full-page loader.
+  if (authStatus === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
@@ -90,54 +94,64 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // If the user is authorized, render the full admin layout with its children.
-  return (
-    <SidebarProvider>
-    <div className="flex min-h-screen bg-muted/40">
-      <Sidebar side="left" className="w-64" collapsible="icon">
-          <SidebarGroup>
-            <SidebarGroupLabel>
-              <Logo />
-            </SidebarGroupLabel>
-          </SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <Link href="/admin/dashboard">
-                <SidebarMenuButton tooltip="Dashboard">
-                  <Home />
-                  Dashboard
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-                <Link href="/admin/management">
-                    <SidebarMenuButton tooltip="Admin Management">
-                        <Shield />
-                        Admin Management
-                    </SidebarMenuButton>
-                </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/admin/users">
-                <SidebarMenuButton tooltip="User Management">
-                  <Users />
-                  User Management
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        <div className="mt-auto">
-            <SidebarMenu>
+  // Case 3: Authorized. Render the full admin layout.
+  if (authStatus === 'authorized') {
+      return (
+        <SidebarProvider>
+        <div className="flex min-h-screen bg-muted/40">
+          <Sidebar side="left" className="w-64" collapsible="icon">
+              <SidebarGroup>
+                <SidebarGroupLabel>
+                  <Logo />
+                </SidebarGroupLabel>
+              </SidebarGroup>
+              <SidebarMenu>
                 <SidebarMenuItem>
-                    <AdminSignOutButton />
+                  <Link href="/admin/dashboard">
+                    <SidebarMenuButton tooltip="Dashboard">
+                      <Home />
+                      Dashboard
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
-            </SidebarMenu>
+                <SidebarMenuItem>
+                    <Link href="/admin/management">
+                        <SidebarMenuButton tooltip="Admin Management">
+                            <Shield />
+                            Admin Management
+                        </SidebarMenuButton>
+                    </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Link href="/admin/users">
+                    <SidebarMenuButton tooltip="User Management">
+                      <Users />
+                      User Management
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            <div className="mt-auto">
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <AdminSignOutButton />
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </div>
+          </Sidebar>
+          <main className="flex-1 flex flex-col">
+            {children}
+          </main>
         </div>
-      </Sidebar>
-      <main className="flex-1 flex flex-col">
-        {children}
-      </main>
+        </SidebarProvider>
+      );
+  }
+
+  // Case 4: Unauthorized and not on login page.
+  // This state is temporary before a redirect, so a loader is appropriate.
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner />
     </div>
-    </SidebarProvider>
   );
 }

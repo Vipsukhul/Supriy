@@ -1,18 +1,18 @@
 /**
- * @file Firestore Security Rules for DebtFlow Application
+ * @fileoverview Firestore Security Rules for DebtFlow application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles and provides role based access to all other collections.
+ * This ruleset employs a hybrid security model. User data is strictly controlled by the user.
+ * Customer and Financial Record data is publicly readable but only writable by authorized users (Admin).
  *
  * Data Structure:
- * - `/users/{userId}`: Stores individual user profiles, accessible only to the owning user.
- * - `/customers/{customerId}`: Stores customer information, accessible to all authenticated users.
- * - `/financialRecords/{recordId}`: Stores financial records, accessible to all authenticated users.
+ * - /users/{userId}: Stores individual user profiles, accessible only to the authenticated user.
+ * - /customers/{customerId}: Stores customer information, publicly readable, writable only by authorized users.
+ * - /financialRecords/{recordId}: Stores financial records, publicly readable, writable only by authorized users.
  *
  * Key Security Decisions:
- * - Users can only read/write their own profile data.
- * - Listing users is not allowed.
- * - Customers and financial records are readable by all authenticated users, but writes are open for prototyping.
+ * - User listing is forbidden to protect user privacy.
+ * - Role-based access control is used for administrative operations.
  *
  */
 rules_version = '2';
@@ -20,59 +20,60 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access to user profile data.
+     * @description Controls access to user profile data.
      * @path /users/{userId}
-     * @allow (create) Authenticated user can create their own profile if the userId matches their auth.uid.
-     * @allow (get, update, delete) Authenticated user can only access their own profile data.
-     * @deny (create) An unauthenticated user cannot create a profile.
-     * @deny (get, update, delete) Authenticated user cannot access another user's profile data.
+     * @allow (create) - User with matching UID can create their own profile.
+     * @allow (get, list, update, delete) - User with matching UID can access their own profile.
+     * @deny (create) - User cannot create a profile with a mismatched UID.
+     * @deny (get, list, update, delete) - User cannot access another user's profile.
      * @principle Enforces document ownership for user profiles.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      function isSignedIn() {
+        return request.auth != null;
       }
-      allow get: if isOwner(userId);
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get, update, delete: if isSignedIn() && isOwner(userId) && resource != null;
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
-      allow update: if isOwner(userId) && resource != null && request.resource.data.id == resource.data.id;
-      allow delete: if isOwner(userId) && resource != null;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
     }
 
     /**
-     * @description Manages access to customer data.
+     * @description Controls access to customer data.
      * @path /customers/{customerId}
-     * @allow (get, list) Any authenticated user can read customer data.
-     * @allow (create, update, delete) Writes are open for prototyping.
-     * @deny (create, update, delete) An unauthenticated user cannot write customer data.
-     * @principle Allows public read access to customer data for prototyping.
+     * @allow (get, list) - Any user can read customer data.
+     * @allow (create, update, delete) - Only admin users can modify customer data.
+     * @deny (create, update, delete) - Non-admin users cannot modify customer data.
+     * @principle Allows public read access but restricts write access to admins.
      */
     match /customers/{customerId} {
-      function isSignedIn() {
-        return request.auth != null;
+      function isAdmin() {
+        return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       }
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn(); // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update: if isSignedIn() && resource != null; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if isSignedIn() && resource != null; // TODO: Add owner validation once the schema is updated with an ownership field.
+
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     /**
-     * @description Manages access to financial record data.
+     * @description Controls access to financial record data.
      * @path /financialRecords/{recordId}
-     * @allow (get, list) Any authenticated user can read financial record data.
-     * @allow (create, update, delete) Writes are open for prototyping.
-     * @deny (create, update, delete) An unauthenticated user cannot write financial record data.
-     * @principle Allows public read access to financial record data for prototyping.
+     * @allow (get, list) - Any user can read financial record data.
+     * @allow (create, update, delete) - Only admin users can modify financial record data.
+     * @deny (create, update, delete) - Non-admin users cannot modify financial record data.
+     * @principle Allows public read access but restricts write access to admins.
      */
     match /financialRecords/{recordId} {
-      function isSignedIn() {
-        return request.auth != null;
+      function isAdmin() {
+        return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       }
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn(); // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update: if isSignedIn() && resource != null; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if isSignedIn() && resource != null; // TODO: Add owner validation once the schema is updated with an ownership field.
+
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin() && resource != null;
     }
   }
 }
