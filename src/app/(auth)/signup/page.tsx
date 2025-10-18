@@ -46,6 +46,7 @@ const formSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// This list defines who gets admin privileges upon signing up.
 const adminEmails = ["vipsukhul@gmail.com", "supriysukhadev12@gmail.com", "amardiptirpude@gmail.com"];
 
 export default function SignupPage() {
@@ -78,18 +79,20 @@ export default function SignupPage() {
     setIsSubmitting(true);
     let userAuth;
     try {
+      // 1. Create the user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       userAuth = userCredential.user;
 
       const [firstName, ...lastNameParts] = values.name.split(' ');
       const lastName = lastNameParts.join(' ');
       
+      // 2. Determine the user's role
       const role: Role = adminEmails.includes(values.email.toLowerCase()) ? 'admin' : 'Guest';
 
-      // Set the custom claim *before* creating the Firestore document.
-      // This is crucial for the security rules to work on first login.
+      // 3. Set the custom claim on the user's auth token. This is the source of truth for security rules.
       await setRole({ userId: userAuth.uid, role });
 
+      // 4. Create the user document in Firestore for display and management purposes.
       const newUser: User = {
         id: userAuth.uid,
         firstName,
@@ -100,32 +103,37 @@ export default function SignupPage() {
         signUpDate: new Date().toISOString(),
         role: role
       };
-
+      
       const userDocRef = doc(firestore, "users", userAuth.uid);
       await setDoc(userDocRef, newUser);
 
-      // Sign out the user immediately after signup so they are forced to log in
-      // which ensures their new auth token (with the custom claim) is loaded.
+      // 5. CRITICAL STEP: Sign out the user immediately.
+      // This forces them to log in again, which ensures their new auth token (with the custom claim) is loaded.
+      // Without this, they would still have an old token without the 'admin' role.
       await auth.signOut();
 
       toast({
         title: "Signup Successful",
-        description: "Your account has been created. Please login to continue.",
+        description: "Your account has been created. Please log in to continue.",
       });
 
       router.push('/login');
 
     } catch (error: any) {
+      console.error("Signup Error: ", error);
       let errorMessage = "An unexpected error occurred.";
-      if (error.code === 'auth/email-already-in-use') {
+       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "This email address is already in use.";
-      } else if (error.message.includes('permission-denied') || error.code === 'permission-denied') {
-          errorMessage = "Could not save user data due to security rules. Please contact support.";
-          // If Firestore write fails, we should ideally delete the created auth user
+      } else if (error.message && error.message.includes('permission-denied')) {
+          errorMessage = "Could not save user data due to security rules.";
+          // If Firestore write fails, we must delete the created auth user to allow a retry.
           if (userAuth) {
             await userAuth.delete().catch(delErr => console.error("Failed to clean up auth user after firestore failure:", delErr));
           }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+      
       toast({
         variant: "destructive",
         title: "Signup Failed",

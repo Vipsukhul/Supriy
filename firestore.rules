@@ -1,127 +1,91 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model for the DebtFlow application.
+ * @description This ruleset enforces a strict user-ownership model for user profiles,
+ * grants public read access to customer and financial record data,
+ * and restricts modification of customers and financial records to authenticated users.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile data, accessible only to the user themselves and admins.
- * - /customers/{customerId}: Stores customer information, read and write access is allowed for admins only
- * - /financialRecords/{recordId}: Stores financial records, read and write access is allowed for admins only.
+ * - /users/{userId}: Stores individual user profiles.  Access is restricted to the owning user.
+ * - /customers/{customerId}: Stores customer information. Publicly readable, writes are restricted.
+ * - /financialRecords/{recordId}: Stores financial records. Publicly readable, writes are restricted.
  *
  * Key Security Decisions:
- * - User listing is explicitly denied to prevent unauthorized data access.
- * - Only users with the 'admin' role can create, update or delete users
- * - All write operations require user authentication.
- * - No schema validation is performed during this prototyping phase to allow for flexibility and iteration.
- *
+ * - User profiles are private and only accessible/modifiable by the owning user.
+ * - Listing of users is disallowed.
+ * - Customers and Financial Records are readable by everyone but only modified by authenticated users.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the user's ID matches the requested user ID.
-     * @param {string} userId - The user ID to compare against.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the user is an admin.
-     */
-    function isAdmin() {
-        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    /**
-     * @description Checks if the user exists and is the owner.
-     * @param {string} userId - The user ID to compare against.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /******************** User Collection Rules ********************/
-
-    /**
-     * @description Controls access to user profile data.
+     * @description Manages access control for user profile documents.
      * @path /users/{userId}
-     * @allow (get) Signed-in user can read their own profile.
-     * @allow (create) Signed-in user can create their own profile.
-     * @allow (update) Signed-in user can update their own profile.
-     * @allow (delete) Signed-in user can delete their own profile.
-     * @deny (get) Non-signed-in user cannot read any profile.
-     * @deny (create) Non-signed-in user cannot create any profile.
-     * @deny (update) Non-signed-in user cannot update any profile.
-     * @deny (delete) Non-signed-in user cannot delete any profile.
-     * @deny (list) Listing all users is not allowed.
-     * @principle Enforces user-ownership for profile data.
+     * @allow (create) - Authenticated user can create their own profile if the userId matches their auth UID.
+     * @allow (get, update, delete) - Authenticated user can only access their own profile data.
+     * @deny (create) - If the user tries to create a profile with an ID that doesn't match their auth UID.
+     * @deny (get, update, delete) - If a user tries to access another user's profile.
+     * @deny (list) - Listing users is not allowed.
+     * @principle Enforces document ownership for user profiles.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
-
-      // Allow user to create their own profile.
-      // Validate that the user ID in the document matches the authenticated user's ID.
-      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
-
-      // Allow user to update their own profile.
-      // Enforce that the user ID in the document remains immutable.
-      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id || isAdmin();
-
-      // Allow user to delete their own profile.
-      allow delete: if isExistingOwner(userId) || isAdmin();
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
-    /******************** Customer Collection Rules ********************/
-
     /**
-     * @description Controls access to customer data.
+     * @description Manages access control for customer documents.
      * @path /customers/{customerId}
-     * @allow (get) Admin can read customer data.
-     * @allow (create) Admin can create customer data.
-     * @allow (update) Admin can update customer data.
-     * @allow (delete) Admin can delete customer data.
-     * @deny (get) Non-admin cannot read customer data.
-     * @deny (create) Non-admin cannot create customer data.
-     * @deny (update) Non-admin cannot update customer data.
-     * @deny (delete) Non-admin cannot delete customer data.
-     * @principle Restricts customer data access to admins only.
+     * @allow (get, list) - Any user can read customer data.
+     * @allow (create, update, delete) - Only authenticated users can create, update, or delete customer data.
+     * @deny (create, update, delete) - If the user is not authenticated.
+     * @principle Allows public read access but restricts writes to authenticated users.
      */
     match /customers/{customerId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
-    /******************** Financial Records Collection Rules ********************/
-
     /**
-     * @description Controls access to financial record data.
+     * @description Manages access control for financial record documents.
      * @path /financialRecords/{recordId}
-     * @allow (get) Admin can read financial record data.
-     * @allow (create) Admin can create financial record data.
-     * @allow (update) Admin can update financial record data.
-     * @allow (delete) Admin can delete financial record data.
-     * @deny (get) Non-admin cannot read financial record data.
-     * @deny (create) Non-admin cannot create financial record data.
-     * @deny (update) Non-admin cannot update financial record data.
-     * @deny (delete) Non-admin cannot delete financial record data.
-     * @principle Restricts financial record data access to admins only.
+     * @allow (get, list) - Any user can read financial record data.
+     * @allow (create, update, delete) - Only authenticated users can create, update, or delete financial record data.
+     * @deny (create, update, delete) - If the user is not authenticated.
+     * @principle Allows public read access but restricts writes to authenticated users.
      */
     match /financialRecords/{recordId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
   }
 }
