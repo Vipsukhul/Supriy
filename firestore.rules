@@ -2,88 +2,68 @@
  * @fileoverview Firestore Security Rules for DebtFlow application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles,
- * allows public read access to customer data, and restricts access to financial records based on assigned engineer.
+ * This ruleset enforces a mixed security model. User data is strictly
+ * controlled by the owning user. Customer and FinancialRecord data are
+ * publicly readable to allow for open data access, but writes are restricted to authorized users.
  *
  * Data Structure:
- * - /users/{userId}: Stores individual user profiles, accessible only to the owner.
- * - /customers/{customerId}: Stores customer data, publicly readable.
- * - /financialRecords/{recordId}: Stores financial records, write access restricted to the assigned engineer.
+ * - /users/{userId}: Stores individual user profiles.  Access is restricted to the owning user.
+ * - /customers/{customerId}: Stores customer information. Publicly readable, writes restricted.
+ * - /financialRecords/{recordId}: Stores financial records. Publicly readable, writes restricted.
  *
  * Key Security Decisions:
- * - Users cannot list all user accounts (potential privacy issue).
- * - Customer data is public for all reads.
- * - Financial records write operations are limited to the engineer assigned.
+ * - Users are not allowed to list all user accounts (to protect privacy).
+ * - Public read access is granted to the /customers and /financialRecords collections to enable open data access.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access to user profile data.
+     * @description Controls access to user profile data.
      * @path /users/{userId}
-     * @allow (create) User with UID lKcNcxsdOEPHXUuXlZuHQBOS3Rk1 can create their own profile.
-     * @allow (get) User with UID lKcNcxsdOEPHXUuXlZuHQBOS3Rk1 can read their own profile.
-     * @allow (update) User with UID lKcNcxsdOEPHXUuXlZuHQBOS3Rk1 can update their own profile.
-     * @allow (delete) User with UID lKcNcxsdOEPHXUuXlZuHQBOS3Rk1 can delete their own profile.
-     * @deny (create) User with UID otherUserId cannot create a profile for userId.
-     * @deny (get) User with UID otherUserId cannot read the profile of userId.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with matching UID can create their profile.
+     * @allow (get, update, delete) User with matching UID can read, update, or delete their own profile.
+     * @deny (list) Prevents listing all user documents.
+     * @deny (create, update, delete) Non-matching UID cannot create, update, or delete a user profile.
+     * @principle Enforces document ownership for user profiles.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Manages access to customer data.
+     * @description Controls access to customer data.
      * @path /customers/{customerId}
-     * @allow (get) Any user can read customer data.
-     * @allow (list) Any user can list customer data.
-     * @deny (create) No one can create customer documents.
-     * @deny (update) No one can update customer documents.
-     * @deny (delete) No one can delete customer documents.
-     * @principle Allows public read access to customer data.
+     * @allow (get, list) Any user can read customer data.
+     * @deny (create, update, delete) Only authorized users can create, update, or delete customer data (currently disabled, TODO).
+     * @principle Allows public read access while restricting writes.
      */
     match /customers/{customerId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Manages access to financial records.
+     * @description Controls access to financial record data.
      * @path /financialRecords/{recordId}
-     * @allow (get) Any user can read financial records.
-     * @allow (list) Any user can list financial records.
-     * @deny (create) No one can create financial records.
-     * @deny (update) Only the assigned engineer can update financial records.
-     * @deny (delete) No one can delete financial records.
-     * @principle Restricts write access to financial records to assigned engineer.
+     * @allow (get, list) Any user can read financial record data.
+     * @deny (create, update, delete) Only authorized users can create, update, or delete financial record data (currently disabled, TODO).
+     * @principle Allows public read access while restricting writes.
      */
     match /financialRecords/{recordId} {
-        allow get, list: if true;
-        allow create: if false;
-        allow update: if isAssignedEngineer(resource.data.assignedEngineerId);
-        allow delete: if false;
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-    }
-
-    function isAssignedEngineer(assignedEngineerId) {
-        return isSignedIn() && request.auth.uid == assignedEngineerId;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
   }
 }
