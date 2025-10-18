@@ -89,8 +89,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen w-full flex-col">
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col p-0">
+              <SheetHeader className="h-16 flex flex-row items-center border-b px-6">
+                <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                  <Logo />
+                </Link>
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-auto py-2">
+                <MobileNavLinks />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+        
         <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+            <Link href="/dashboard" className="hidden md:flex items-center gap-2 font-semibold">
               <Logo />
             </Link>
             <div className="hidden md:flex">
@@ -123,28 +145,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
-
-            <div className="md:hidden">
-                <Sheet>
-                <SheetTrigger asChild>
-                    <Button variant="outline" size="icon" className="shrink-0">
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">Toggle navigation menu</span>
-                    </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex flex-col p-0">
-                    <SheetHeader className="h-16 flex flex-row items-center border-b px-6">
-                        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-                            <Logo />
-                        </Link>
-                        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-                    </SheetHeader>
-                    <div className="flex-1 overflow-auto py-2">
-                        <MobileNavLinks />
-                    </div>
-                </SheetContent>
-                </Sheet>
-            </div>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
