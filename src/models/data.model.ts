@@ -7,6 +7,7 @@ export interface Invoice {
     region?: string;
     dispute?: 'Yes' | 'No';
     note?: string;
+    status?: 'Paid' | 'Pending' | 'Overdue';
 }
 
 export interface FinancialRecord {
