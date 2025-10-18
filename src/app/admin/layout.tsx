@@ -23,19 +23,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized' | 'no-user'>('loading');
 
   useEffect(() => {
+    // If the user is on the login page, we don't need to do any auth checks here.
+    // The login page has its own logic to redirect if a user is already signed in.
+    if (pathname === '/admin/login') {
+      setAuthStatus('no-user'); // Effectively bypasses the layout's auth protection.
+      return;
+    }
+
     // If Firebase auth is still loading, wait.
     if (isUserLoading) {
       setAuthStatus('loading');
       return;
     }
-
-    // If the user is trying to access the login page, let them.
-    if (pathname === '/admin/login') {
-      // If a user is already logged in, they will be redirected by the login page itself.
-      setAuthStatus('no-user'); // Treat as if no user is logged in for layout purposes.
-      return;
-    }
-
+    
     // If there is no authenticated user, redirect to the admin login page.
     if (!user) {
       setAuthStatus('no-user');
@@ -54,7 +54,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         } else {
           // User is logged in but is NOT an admin.
           setAuthStatus('unauthorized');
-          // Don't sign out here. Redirect to the main app dashboard.
           router.replace('/dashboard'); 
           toast({
             variant: "destructive",
@@ -73,7 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [user, isUserLoading, firestore, router, pathname, toast]);
 
   // If the user is on the login page, render the children directly without the layout.
-  if (pathname === '/admin/login') {
+  if (authStatus === 'no-user' || pathname === '/admin/login') {
     return <>{children}</>;
   }
 
@@ -139,9 +138,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // For 'unauthorized' or 'no-user' states where it's not the login page,
-  // we show a loader while the redirection (handled in useEffect) takes place.
-  // This prevents content from flashing before the redirect is complete.
+  // For 'unauthorized' states, we show a loader while the redirection
+  // (handled in useEffect) takes place.
   return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />

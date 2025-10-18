@@ -66,8 +66,7 @@ export default function AdminLoginPage() {
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       // On successful sign-in, the 'user' state will update, triggering the useEffect
-      // to redirect to the dashboard. The AdminLayout then does the final role check.
-      // A toast here can be premature as the role check hasn't happened.
+      // to redirect to the dashboard. A success toast is not needed as the layout change is feedback enough.
     } catch (error: any) {
         let errorMessage = "An unexpected error occurred.";
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
