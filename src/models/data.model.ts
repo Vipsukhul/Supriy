@@ -17,9 +17,12 @@ export interface FinancialRecord {
     invoices: Invoice[];
     remarks?: 'Payment Received' | 'Partial Payment Received' | 'Under Follow up' | 'Dispute' | 'None';
     notes?: string;
+    assignedEngineerId?: string;
 }
 
 export interface Customer {
     customerCode: string;
     customerName: string;
 }
+
+    

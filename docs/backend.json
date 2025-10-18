@@ -162,6 +162,10 @@
         "notes": {
             "type": "string",
             "description": "General notes for this customer for the month."
+        },
+        "assignedEngineerId": {
+            "type": "string",
+            "description": "The UID of the engineer assigned to this record."
         }
       },
       "required": [
@@ -228,3 +232,5 @@
     ]
   }
 }
+
+    

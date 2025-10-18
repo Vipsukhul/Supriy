@@ -21,4 +21,8 @@ export interface CustomerData {
     remarks: 'Payment Received' | 'Partial Payment Received' | 'Under Follow up' | 'Dispute' | 'None';
     notes: string;
     recordId: string; // To know which document to update
+    assignedEngineerId?: string;
+    region: string;
 }
+
+    
