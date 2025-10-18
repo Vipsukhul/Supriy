@@ -29,13 +29,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return; 
     }
 
-    // If there is no user, they should be on the login page.
+    // If the user is trying to access the login page, don't do anything here.
+    // Let the login page handle its own logic.
+    if (pathname === '/admin/login') {
+      setIsCheckingRole(false);
+      return;
+    }
+
+    // If there is no user, they should be redirected to the admin login page.
     if (!user) {
       setIsCheckingRole(false);
-      // If they are not already on the login page, redirect them.
-      if (pathname !== '/admin/login') {
-        router.replace("/admin/login");
-      }
+      router.replace("/admin/login");
       return;
     }
 
@@ -45,6 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const userDocRef = doc(firestore, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
 
+        // Check if the document exists and the role is 'admin'.
         if (userDoc.exists() && userDoc.data().role === 'admin') {
           setIsAuthorized(true);
         } else {

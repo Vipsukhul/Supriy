@@ -54,13 +54,11 @@ export default function AdminLoginPage() {
     },
   });
   
-  // This useEffect will run when the user state changes.
-  // The AdminLayout is the primary gatekeeper, but this can help redirect
-  // a user who is already logged in and lands on this page.
   useEffect(() => {
+    // If the initial user check is done and we have a user,
+    // the main admin layout will handle redirection/validation.
+    // If the user is an admin, they'll be sent to the dashboard.
     if (!isUserLoading && user) {
-        // A user is logged in. The AdminLayout will handle role checking.
-        // We'll push to dashboard, and the layout will intercept if they aren't an admin.
         router.push('/admin/dashboard');
     }
   }, [user, isUserLoading, router]);
@@ -79,8 +77,9 @@ export default function AdminLoginPage() {
             title: "Admin Login Successful",
             description: "Welcome back! Redirecting...",
           });
-          // On successful admin login, the `user` state will update,
-          // and the useEffect above will trigger the redirect to the dashboard.
+          // Successful login will update the `user` state from the hook,
+          // and the useEffect above will handle the redirect.
+          router.push('/admin/dashboard');
       } else {
           // If the user is not an admin, sign them out immediately and show an error.
           await auth.signOut();
@@ -105,9 +104,8 @@ export default function AdminLoginPage() {
     }
   }
   
-  // While the initial user authentication is loading, or if a user is found (and redirection is happening),
-  // show the loading spinner.
-  if (isUserLoading || user) {
+  // Show a loader ONLY while the initial auth check is happening.
+  if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
@@ -115,6 +113,16 @@ export default function AdminLoginPage() {
     );
   }
   
+  // If not loading and a user is already logged in, the layout/useEffect will redirect.
+  // This prevents the login form from flashing.
+  if (user) {
+    return (
+        <div className="flex items-center justify-center min-h-screen">
+          <LoadingSpinner />
+        </div>
+      );
+  }
+
   // Once loading is complete and we know there is no user, show the login form.
   return (
      <div className="min-h-screen bg-background flex items-center justify-center p-4">
