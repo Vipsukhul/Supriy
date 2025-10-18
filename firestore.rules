@@ -1,69 +1,98 @@
 /**
- * @fileoverview Firestore Security Rules for DebtFlow application.
+ * @file Firestore Security Rules for DebtFlow Application
+ * @version Prototyping Mode - Data shape is not enforced.
  *
- * Core Philosophy:
- * This ruleset enforces a mixed security model. User data is strictly
- * controlled by the owning user. Customer and FinancialRecord data are
- * publicly readable to allow for open data access, but writes are restricted to authorized users.
+ * @description This ruleset enforces a user-ownership model for user profiles
+ * and allows for role-based access to customer and financial record data. It
+ * prioritizes secure authorization and avoids complex data validation in this
+ * prototyping phase.
  *
  * Data Structure:
- * - /users/{userId}: Stores individual user profiles.  Access is restricted to the owning user.
- * - /customers/{customerId}: Stores customer information. Publicly readable, writes restricted.
- * - /financialRecords/{recordId}: Stores financial records. Publicly readable, writes restricted.
+ * - /users/{userId}: Stores individual user profiles, secured by owner-only access. The `userId`
+ *   must match the authenticated user's UID.
+ * - /customers/{customerId}: Stores customer information. Access is not restricted in this
+ *   initial prototype, and we assume this will later be controlled by user roles.
+ * - /financialRecords/{recordId}: Stores financial records.  Access is not restricted in this
+ *   initial prototype, and we assume this will later be controlled by user roles.
  *
  * Key Security Decisions:
- * - Users are not allowed to list all user accounts (to protect privacy).
- * - Public read access is granted to the /customers and /financialRecords collections to enable open data access.
+ * - User listing is disallowed to protect user privacy.
+ * - No data shape validation is performed in this prototyping phase.
+ * - The rules default to a secure-by-default posture where access is denied
+ *   unless explicitly allowed.
+ *
+ * Denormalization for Authorization:
+ * - No denormalization is used in this initial prototype, but future versions
+ *   will denormalize role and ownership data to avoid costly `get()` calls in
+ *   the security rules.
+ *
+ * Structural Segregation:
+ * - No structural segregation is used in this initial prototype.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile data.
+     * @description Enforces owner-only access to user profiles.
      * @path /users/{userId}
-     * @allow (create) User with matching UID can create their profile.
-     * @allow (get, update, delete) User with matching UID can read, update, or delete their own profile.
-     * @deny (list) Prevents listing all user documents.
-     * @deny (create, update, delete) Non-matching UID cannot create, update, or delete a user profile.
-     * @principle Enforces document ownership for user profiles.
+     * @allow (create) - User 'vipsup000001' can create their profile if authenticated as 'vipsup000001'.
+     * @deny (create) - User 'vipsup000001' cannot create a profile for 'vipsup000002'.
+     * @allow (get, update, delete) - User 'vipsup000001' can read/update/delete their profile.
+     * @deny (get, update, delete) - User 'vipsup000001' cannot read/update/delete the 'vipsup000002' profile.
+     * @deny (list) - No one can list users.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
       function isSignedIn() {
         return request.auth != null;
       }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
       allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow list: if false; // User listing is not permitted.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id; // Enforce immutability of the userId
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to customer data.
+     * @description Allows read and write access to customer data.
      * @path /customers/{customerId}
-     * @allow (get, list) Any user can read customer data.
-     * @deny (create, update, delete) Only authorized users can create, update, or delete customer data (currently disabled, TODO).
-     * @principle Allows public read access while restricting writes.
+     * @allow (get, list, create, update, delete) - Any authenticated user can perform any operation.
+     * @principle Open access for prototyping.  Future versions will restrict based on roles.
      */
     match /customers/{customerId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        function isSignedIn() {
+            return request.auth != null;
+        }
+        allow get, list: if true;
+        allow create: if isSignedIn();
+        allow update: if isSignedIn();
+        allow delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to financial record data.
+     * @description Allows read and write access to financial records.
      * @path /financialRecords/{recordId}
-     * @allow (get, list) Any user can read financial record data.
-     * @deny (create, update, delete) Only authorized users can create, update, or delete financial record data (currently disabled, TODO).
-     * @principle Allows public read access while restricting writes.
+     * @allow (get, list, create, update, delete) - Any authenticated user can perform any operation.
+     * @principle Open access for prototyping. Future versions will restrict based on roles.
      */
     match /financialRecords/{recordId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        function isSignedIn() {
+            return request.auth != null;
+        }
+        allow get, list: if true;
+        allow create: if isSignedIn();
+        allow update: if isSignedIn();
+        allow delete: if isSignedIn();
     }
   }
 }

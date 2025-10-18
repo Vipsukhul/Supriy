@@ -7,9 +7,13 @@
       "type": "object",
       "description": "Represents a user account within the DebtFlow application.",
       "properties": {
-        "id": {
+        "uid": {
           "type": "string",
-          "description": "Unique identifier for the user account."
+          "description": "Unique Firebase Authentication identifier for the user account."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Custom, sequential, and user-friendly unique identifier for the user."
         },
         "firstName": {
           "type": "string",
@@ -50,7 +54,8 @@
         }
       },
       "required": [
-        "id",
+        "uid",
+        "userId",
         "firstName",
         "lastName",
         "email",
@@ -174,6 +179,19 @@
         "month",
         "invoices"
       ]
+    },
+    "Counter": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Counter",
+        "type": "object",
+        "description": "A document to hold a numeric counter.",
+        "properties": {
+            "lastId": {
+                "type": "number",
+                "description": "The last used ID."
+            }
+        },
+        "required": ["lastId"]
     }
   },
   "auth": {
@@ -228,9 +246,16 @@
             }
           ]
         }
+      },
+      {
+        "path": "/counters/users",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Counter"
+          },
+          "description": "Stores the counter for generating sequential user IDs."
+        }
       }
     ]
   }
 }
-
-    

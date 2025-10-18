@@ -2,7 +2,8 @@
 export type Role = "admin" | "Country Manager" | "Manager" | "Engineer" | "Guest";
 
 export interface User {
-    id: string;
+    uid: string; // Firebase Auth UID
+    userId: string; // Custom, sequential user ID
     firstName: string;
     lastName: string;
     email: string;

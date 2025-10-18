@@ -32,6 +32,7 @@ import { useEffect, useState } from "react";
 import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { generateUserId } from "@/ai/flows/generate-user-id-flow";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -77,16 +78,22 @@ export default function SignupPage() {
     setIsSubmitting(true);
     let userAuth;
     try {
+      // 1. Create the Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       userAuth = userCredential.user;
 
+      // 2. Generate the custom user ID
+      const namePrefix = values.name.substring(0, 3).toLowerCase();
+      const { userId } = await generateUserId({ prefix: namePrefix });
+
+      // 3. Prepare the user document for Firestore
       const [firstName, ...lastNameParts] = values.name.split(' ');
       const lastName = lastNameParts.join(' ');
-      
       const role: Role = adminEmails.includes(values.email.toLowerCase()) ? 'admin' : 'Guest';
 
       const newUser: User = {
-        id: userAuth.uid,
+        uid: userAuth.uid,
+        userId: userId,
         firstName,
         lastName,
         email: values.email,
@@ -96,16 +103,16 @@ export default function SignupPage() {
         role: role
       };
       
+      // 4. Save the user document to Firestore
       const userDocRef = doc(firestore, "users", userAuth.uid);
       await setDoc(userDocRef, newUser);
 
       toast({
         title: "Account Created",
-        description: "Your account is ready. You will be redirected to the dashboard.",
+        description: "Your account is ready. Redirecting to the dashboard.",
         duration: 5000,
       });
 
-      // No need to sign out, user is already logged in and can proceed
       router.push('/dashboard');
 
     } catch (error: any) {
@@ -117,7 +124,6 @@ export default function SignupPage() {
         errorMessage = error.message;
       }
       
-      // Cleanup the auth user if something went wrong after creation
       if (userAuth) {
         await userAuth.delete().catch(delErr => console.error("Failed to clean up auth user after signup failure:", delErr));
       }
@@ -302,5 +308,3 @@ export default function SignupPage() {
     </Card>
   );
 }
-
-    
