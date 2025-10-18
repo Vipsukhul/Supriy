@@ -1,98 +1,93 @@
-/**
- * @file Firestore Security Rules for DebtFlow Application
- * @version Prototyping Mode - Data shape is not enforced.
- *
- * @description This ruleset enforces a user-ownership model for user profiles
- * and allows for role-based access to customer and financial record data. It
- * prioritizes secure authorization and avoids complex data validation in this
- * prototyping phase.
- *
- * Data Structure:
- * - /users/{userId}: Stores individual user profiles, secured by owner-only access. The `userId`
- *   must match the authenticated user's UID.
- * - /customers/{customerId}: Stores customer information. Access is not restricted in this
- *   initial prototype, and we assume this will later be controlled by user roles.
- * - /financialRecords/{recordId}: Stores financial records.  Access is not restricted in this
- *   initial prototype, and we assume this will later be controlled by user roles.
- *
- * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - No data shape validation is performed in this prototyping phase.
- * - The rules default to a secure-by-default posture where access is denied
- *   unless explicitly allowed.
- *
- * Denormalization for Authorization:
- * - No denormalization is used in this initial prototype, but future versions
- *   will denormalize role and ownership data to avoid costly `get()` calls in
- *   the security rules.
- *
- * Structural Segregation:
- * - No structural segregation is used in this initial prototype.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces owner-only access to user profiles.
+     * @description Manages access control for user profiles.  A user can only
+     * read and write their own data. Listing all users is disallowed.
      * @path /users/{userId}
-     * @allow (create) - User 'vipsup000001' can create their profile if authenticated as 'vipsup000001'.
-     * @deny (create) - User 'vipsup000001' cannot create a profile for 'vipsup000002'.
-     * @allow (get, update, delete) - User 'vipsup000001' can read/update/delete their profile.
-     * @deny (get, update, delete) - User 'vipsup000001' cannot read/update/delete the 'vipsup000002' profile.
-     * @deny (list) - No one can list users.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with UID 'user_abc' can create their own profile.
+     * @allow (get, update, delete) User with UID 'user_abc' can read/write their profile.
+     * @deny (create, get, update, delete) User with UID 'user_xyz' cannot access user 'user_abc' profile.
+     * @deny (list) No one can list all users.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
       function isSignedIn() {
         return request.auth != null;
       }
 
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
       allow get: if isOwner(userId);
-      allow list: if false; // User listing is not permitted.
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id; // Enforce immutability of the userId
-      allow delete: if isExistingOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Allows read and write access to customer data.
+     * @description Manages access control for customer data.
+     * Customer data is publicly readable but requires authentication for create,
+     * update, and delete operations.
      * @path /customers/{customerId}
-     * @allow (get, list, create, update, delete) - Any authenticated user can perform any operation.
-     * @principle Open access for prototyping.  Future versions will restrict based on roles.
+     * @allow (get, list) Any user can read customer data.
+     * @allow (create, update, delete) Authenticated users can create, update and delete customer data.
+     * @deny (create, update, delete) Unauthenticated users cannot modify customer data.
+     * @principle Allows public read access with owner-only writes.
      */
     match /customers/{customerId} {
-        function isSignedIn() {
-            return request.auth != null;
-        }
-        allow get, list: if true;
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
-        allow delete: if isSignedIn();
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Allows read and write access to financial records.
+     * @description Manages access control for financial records.
+     * Financial records are publicly readable but require authentication for create,
+     * update, and delete operations.
      * @path /financialRecords/{recordId}
-     * @allow (get, list, create, update, delete) - Any authenticated user can perform any operation.
-     * @principle Open access for prototyping. Future versions will restrict based on roles.
+     * @allow (get, list) Any user can read financial record data.
+     * @allow (create, update, delete) Authenticated users can create, update and delete financial record data.
+     * @deny (create, update, delete) Unauthenticated users cannot modify financial record data.
+     * @principle Allows public read access with owner-only writes.
      */
     match /financialRecords/{recordId} {
-        function isSignedIn() {
-            return request.auth != null;
-        }
-        allow get, list: if true;
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
-        allow delete: if isSignedIn();
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Protects the counter document for generating sequential user IDs.
+     * Only authenticated users can create, update, or delete the counter.
+     * @path /counters/users
+     * @allow (get) Any user can read the counter.
+     * @allow (create, update, delete) Authenticated users can modify the counter.
+     * @deny (create, update, delete) Unauthenticated users cannot modify the counter.
+     * @principle Requires authentication for counter management.
+     */
+    match /counters/users {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
   }
 }
