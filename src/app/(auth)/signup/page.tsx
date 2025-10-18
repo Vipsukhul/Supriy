@@ -32,6 +32,7 @@ import { useEffect, useState } from "react";
 import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { setRole } from "@/ai/flows/set-role-flow";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -45,7 +46,6 @@ const formSchema = z.object({
   path: ["confirmPassword"],
 });
 
-// This list defines who gets admin privileges upon signing up.
 const adminEmails = ["vipsukhul@gmail.com", "supriysukhadev12@gmail.com", "amardiptirpude@gmail.com"];
 
 export default function SignupPage() {
@@ -78,7 +78,6 @@ export default function SignupPage() {
     setIsSubmitting(true);
     let userAuth;
     try {
-      // 1. Create the user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       userAuth = userCredential.user;
 
@@ -87,7 +86,6 @@ export default function SignupPage() {
       
       const role: Role = adminEmails.includes(values.email.toLowerCase()) ? 'admin' : 'Guest';
 
-      // 2. Create the user document in Firestore for display and management purposes.
       const newUser: User = {
         id: userAuth.uid,
         firstName,
@@ -101,10 +99,20 @@ export default function SignupPage() {
       
       const userDocRef = doc(firestore, "users", userAuth.uid);
       await setDoc(userDocRef, newUser);
+
+      // Set custom claim
+      const setResult = await setRole({ uid: userAuth.uid, role });
+      if (!setResult.success) {
+          throw new Error(setResult.message || 'Could not set user role claim.');
+      }
       
+      // Sign the user out to force a token refresh on next login
+      await auth.signOut();
+
       toast({
-        title: "Signup Successful",
-        description: "Your account has been created. You can now log in.",
+        title: "Account Created",
+        description: "Your account is ready. Please log in to continue.",
+        duration: 5000,
       });
 
       router.push('/login');
@@ -114,16 +122,15 @@ export default function SignupPage() {
       let errorMessage = "An unexpected error occurred.";
        if (error.code === 'auth/email-already-in-use') {
         errorMessage = "This email address is already in use.";
-      } else if (error.message && error.message.includes('permission-denied')) {
-          errorMessage = "Could not save user data due to security rules.";
-          // If Firestore write fails, we must delete the created auth user to allow a retry.
-          if (userAuth) {
-            await userAuth.delete().catch(delErr => console.error("Failed to clean up auth user after firestore failure:", delErr));
-          }
       } else if (error.message) {
         errorMessage = error.message;
       }
       
+      // Cleanup the user if something went wrong after creation
+      if (userAuth) {
+        await userAuth.delete().catch(delErr => console.error("Failed to clean up auth user after signup failure:", delErr));
+      }
+
       toast({
         variant: "destructive",
         title: "Signup Failed",
