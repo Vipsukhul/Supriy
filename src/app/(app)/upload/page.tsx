@@ -11,7 +11,6 @@ import {
   doc,
   writeBatch,
   arrayUnion,
-  serverTimestamp,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UploadCloud } from 'lucide-react';
 import type { Invoice, FinancialRecord, Customer } from "@/models/data.model";
 
@@ -29,6 +29,8 @@ export default function UploadPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State for manual entry form
+  const [financialYear, setFinancialYear] = useState("");
+  const [month, setMonth] = useState("");
   const [customerCode, setCustomerCode] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -41,20 +43,19 @@ export default function UploadPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if (!customerCode || !invoiceNumber || !invoiceDate || !invoiceAmount || !outstandingAmount) {
+    if (!financialYear || !month || !customerCode || !invoiceNumber || !invoiceDate || !invoiceAmount || !outstandingAmount) {
         toast({
             variant: "destructive",
             title: "Validation Error",
-            description: "Please fill out all required fields.",
+            description: "Please fill out all required fields, including Financial Year and Month.",
         });
         setIsSubmitting(false);
         return;
     }
 
     try {
-        const date = new Date(invoiceDate);
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1;
+        const year = parseInt(financialYear);
+        const monthNum = parseInt(month);
 
         const newInvoice: Omit<Invoice, 'id'> = {
             invoiceNumber,
@@ -69,7 +70,7 @@ export default function UploadPage() {
             financialRecordsRef,
             where("customerCode", "==", customerCode),
             where("year", "==", year),
-            where("month", "==", month)
+            where("month", "==", monthNum)
         );
 
         const querySnapshot = await getDocs(q);
@@ -80,8 +81,8 @@ export default function UploadPage() {
             const newFinancialRecordRef = doc(financialRecordsRef);
             const newRecord: FinancialRecord = {
                 customerCode,
-                year,
-                month,
+                year: year,
+                month: monthNum,
                 invoices: [newInvoice],
             };
             batch.set(newFinancialRecordRef, newRecord);
@@ -106,6 +107,8 @@ export default function UploadPage() {
         });
 
         // Reset form
+        setFinancialYear('');
+        setMonth('');
         setCustomerCode('');
         setCustomerName('');
         setInvoiceNumber('');
@@ -171,6 +174,45 @@ export default function UploadPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                        <Label>Financial Year</Label>
+                        <Select onValueChange={setFinancialYear} value={financialYear} disabled={isSubmitting}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="2026">2026-2027</SelectItem>
+                                <SelectItem value="2025">2025-2026</SelectItem>
+                                <SelectItem value="2024">2024-2025</SelectItem>
+                                <SelectItem value="2023">2023-2024</SelectItem>
+                            </SelectContent>
+                        </Select>
+                   </div>
+                    <div className="space-y-2">
+                        <Label>Month</Label>
+                        <Select onValueChange={setMonth} value={month} disabled={isSubmitting}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select month" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="1">January</SelectItem>
+                                <SelectItem value="2">February</SelectItem>
+                                <SelectItem value="3">March</SelectItem>
+                                <SelectItem value="4">April</SelectItem>
+                                <SelectItem value="5">May</SelectItem>
+                                <SelectItem value="6">June</SelectItem>
+                                <SelectItem value="7">July</SelectItem>
+                                <SelectItem value="8">August</SelectItem>
+                                <SelectItem value="9">September</SelectItem>
+                                <SelectItem value="10">October</SelectItem>
+                                <SelectItem value="11">November</SelectItem>
+                                <SelectItem value="12">December</SelectItem>
+                            </SelectContent>
+                        </Select>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                   <div className="space-y-2">
                     <Label htmlFor="customer-code">Customer Code</Label>
                     <Input id="customer-code" placeholder="Enter customer code" value={customerCode} onChange={(e) => setCustomerCode(e.target.value)} disabled={isSubmitting} />
@@ -211,5 +253,3 @@ export default function UploadPage() {
     </div>
   );
 }
-
-    
