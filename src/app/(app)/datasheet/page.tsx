@@ -175,6 +175,11 @@ export default function DatasheetPage() {
 
       const recordRef = doc(firestore, 'financialRecords', customerInfo.recordId);
       updateDocumentNonBlocking(recordRef, { [field]: value });
+      
+      toast({
+          title: "Update Queued",
+          description: `Customer ${field} has been updated.`,
+      });
   }
 
   const handleInvoicesUpdate = async (customerCode: string, updatedInvoices: EnrichedInvoice[]) => {
