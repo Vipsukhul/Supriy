@@ -6,17 +6,20 @@ import { Logo } from '@/components/logo';
 import { Sidebar, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel, SidebarProvider } from '@/components/ui/sidebar';
 import { Shield, Users, Home } from 'lucide-react';
 import AdminSignOutButton from './components/AdminSignOutButton';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, useAuth } from '@/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const auth = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isCheckingRole, setIsCheckingRole] = useState(true);
 
@@ -47,7 +50,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         } else {
           // User is logged in but is NOT an admin.
           // Sign them out from the admin attempt and redirect to general login.
-          await auth.signOut(); // Using auth from firebase context
+          await auth.signOut();
           router.replace('/login');
           toast({
             variant: "destructive",
@@ -57,14 +60,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
       } catch (error) {
         console.error("Error checking admin role:", error);
-        router.replace('/login'); // Redirect on error for safety
+        await auth.signOut(); // Sign out on error for safety
+        router.replace('/login');
       } finally {
         setIsCheckingRole(false);
       }
     };
 
     checkAdminRole();
-  }, [user, isUserLoading, firestore, router, pathname]);
+  }, [user, isUserLoading, firestore, router, pathname, auth, toast]);
 
   // If the user is trying to access the login page, let them.
   if (pathname === '/admin/login') {
@@ -83,6 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Only render the admin layout if the user is a confirmed admin.
   if (!isAuthorized) {
     // This state is a fallback. The useEffect should handle redirection.
+    // A brief loader is shown here before the redirection completes.
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
