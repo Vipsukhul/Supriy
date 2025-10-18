@@ -26,8 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Mail, Lock, User as UserIcon, Phone, Globe } from "lucide-react";
 import { useAuth, useFirestore, useUser } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc } from "firebase/firestore";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { doc, setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
@@ -76,9 +75,10 @@ export default function SignupPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    let userAuth;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const userAuth = userCredential.user;
+      userAuth = userCredential.user;
 
       const [firstName, ...lastNameParts] = values.name.split(' ');
       const lastName = lastNameParts.join(' ');
@@ -97,12 +97,9 @@ export default function SignupPage() {
       };
 
       const userDocRef = doc(firestore, "users", userAuth.uid);
-      // We use setDoc here and await it to ensure the user document is created before we proceed.
-      // The non-blocking version is great for updates, but for signup, it's better to be sure.
-      await setDocumentNonBlocking(userDocRef, newUser, {});
+      await setDoc(userDocRef, newUser);
 
       // Sign out the user immediately after signup so they are forced to log in.
-      // This is a common pattern to ensure the auth state is clean.
       await auth.signOut();
 
       toast({
@@ -116,6 +113,12 @@ export default function SignupPage() {
       let errorMessage = "An unexpected error occurred.";
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "This email address is already in use.";
+      } else if (error.code === 'permission-denied') {
+          errorMessage = "Could not save user data. Please contact support.";
+          // If Firestore write fails, we should ideally delete the created auth user
+          if (userAuth) {
+            await userAuth.delete();
+          }
       }
       toast({
         variant: "destructive",
