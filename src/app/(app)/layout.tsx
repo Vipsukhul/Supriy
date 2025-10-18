@@ -7,18 +7,21 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
+import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop, Linkedin, Twitter } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { useTheme } from 'next-themes';
+import { BackToTopButton } from '@/components/ui/back-to-top-button';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { setTheme } = useTheme();
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -89,8 +92,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen w-full flex-col">
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col p-0">
+              <SheetHeader className="h-16 flex flex-row items-center border-b px-6">
+                <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                  <Logo />
+                </Link>
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-auto py-2">
+                <MobileNavLinks />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+        
         <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+            <Link href="/dashboard" className="hidden md:flex items-center gap-2 font-semibold">
               <Logo />
             </Link>
             <div className="hidden md:flex">
@@ -116,6 +141,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>Settings</DropdownMenuItem>
                 <DropdownMenuItem>Support</DropdownMenuItem>
+                 <DropdownMenuSeparator />
+                 <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                        <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                        <Moon className="absolute h-[1.2rem] w-[1rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                        <span className="ml-2">Toggle theme</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setTheme("light")}>
+                            <Sun className="mr-2 h-4 w-4" />
+                            <span>Light</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("dark")}>
+                            <Moon className="mr-2 h-4 w-4" />
+                            <span>Dark</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("system")}>
+                            <Laptop className="mr-2 h-4 w-4" />
+                            <span>System</span>
+                        </DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
@@ -123,33 +172,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
-
-            <div className="md:hidden">
-                <Sheet>
-                <SheetTrigger asChild>
-                    <Button variant="outline" size="icon" className="shrink-0">
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">Toggle navigation menu</span>
-                    </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex flex-col p-0">
-                    <SheetHeader className="h-16 flex flex-row items-center border-b px-6">
-                        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-                            <Logo />
-                        </Link>
-                        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-                    </SheetHeader>
-                    <div className="flex-1 overflow-auto py-2">
-                        <MobileNavLinks />
-                    </div>
-                </SheetContent>
-                </Sheet>
-            </div>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         {children}
       </main>
+      <footer className="flex flex-col sm:flex-row items-center justify-between p-4 border-t bg-background gap-4">
+        <div className="flex items-center gap-2">
+            <Logo />
+        </div>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>©️ Vipul S</span>
+          <div className="flex items-center gap-3">
+            <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
+              <Linkedin className="h-5 w-5" />
+            </a>
+            <a href="https://www.twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
+              <Twitter className="h-5 w-5" />
+            </a>
+          </div>
+        </div>
+      </footer>
+      <BackToTopButton />
     </div>
   );
 }
