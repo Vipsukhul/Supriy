@@ -8,7 +8,7 @@ import { useAuth, useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun } from 'lucide-react';
+import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
@@ -150,13 +150,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <DropdownMenuPortal>
                         <DropdownMenuSubContent>
                         <DropdownMenuItem onClick={() => setTheme("light")}>
-                            Light
+                            <Sun className="mr-2 h-4 w-4" />
+                            <span>Light</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setTheme("dark")}>
-                            Dark
+                            <Moon className="mr-2 h-4 w-4" />
+                            <span>Dark</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setTheme("system")}>
-                            System
+                            <Laptop className="mr-2 h-4 w-4" />
+                            <span>System</span>
                         </DropdownMenuItem>
                         </DropdownMenuSubContent>
                     </DropdownMenuPortal>
