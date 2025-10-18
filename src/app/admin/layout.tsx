@@ -51,7 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         
         const userData = userDoc.data() as User | undefined;
 
-        if (userDoc.exists() && userData?.role === 'admin') {
+        if (userDoc.exists() && userData?.role?.toLowerCase() === 'admin') {
           setAuthStatus('authorized');
         } else {
           // If they don't have the admin role, show error and redirect.
