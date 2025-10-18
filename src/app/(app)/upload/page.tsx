@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UploadCloud } from 'lucide-react';
 import type { Invoice, FinancialRecord, Customer } from "@/models/data.model";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const financialYears = [
     { value: "2026", label: "2026-2027" },
@@ -135,7 +136,9 @@ export default function UploadPage() {
         // Also create/update the customer document
         const customerRef = doc(firestore, "customers", customerCode);
         const customerData: Customer = { customerCode, customerName };
-        batch.set(customerRef, customerData, { merge: true });
+        
+        // Use non-blocking set with contextual error
+        setDocumentNonBlocking(customerRef, customerData, { merge: true });
 
         await batch.commit();
 
@@ -157,12 +160,16 @@ export default function UploadPage() {
         setRegion('');
 
     } catch (error: any) {
-        console.error("Error saving manual entry: ", error);
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: `Could not save data: ${error.message}`,
-        });
+        // The detailed error is now thrown globally by the listener
+        // But we can still show a generic toast here for the user
+        if (error.name !== 'FirebaseError') { // Don't show toast for our custom permission errors
+          console.error("Error saving manual entry: ", error);
+          toast({
+              variant: "destructive",
+              title: "Error",
+              description: `Could not save data: ${error.message}`,
+          });
+        }
     } finally {
         setIsSubmitting(false);
     }
@@ -282,3 +289,5 @@ export default function UploadPage() {
     </div>
   );
 }
+
+    
