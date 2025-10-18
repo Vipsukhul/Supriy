@@ -12,13 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function InvoicesPage() {
-  const invoices = [
-    { id: 'INV001', client: 'Innovate Inc.', amount: 2500, status: 'Paid', date: '2023-01-15' },
-    { id: 'INV002', client: 'Solutions Co.', amount: 1800, status: 'Pending', date: '2023-02-20' },
-    { id: 'INV003', client: 'Tech Gadgets', amount: 3200, status: 'Paid', date: '2023-03-10' },
-    { id: 'INV004', client: 'Global Exports', amount: 800, status: 'Overdue', date: '2023-04-05' },
-    { id: 'INV005', client: 'Market Makers', amount: 4500, status: 'Pending', date: '2023-05-12' },
-  ];
+  const invoices: any[] = [];
 
   const getStatusVariant = (status: string) => {
     switch (status.toLowerCase()) {
@@ -54,17 +48,25 @@ export default function InvoicesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">{invoice.id}</TableCell>
-                    <TableCell>{invoice.client}</TableCell>
-                    <TableCell>${invoice.amount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusVariant(invoice.status) as any}>{invoice.status}</Badge>
+                {invoices && invoices.length > 0 ? (
+                  invoices.map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.id}</TableCell>
+                      <TableCell>{invoice.client}</TableCell>
+                      <TableCell>${invoice.amount.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusVariant(invoice.status) as any}>{invoice.status}</Badge>
+                      </TableCell>
+                      <TableCell>{invoice.date}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      No data to display.
                     </TableCell>
-                    <TableCell>{invoice.date}</TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
