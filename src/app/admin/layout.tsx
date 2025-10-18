@@ -116,22 +116,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                    <Link href="/admin/management">
-                        <SidebarMenuButton tooltip="Admin Management">
-                            <Shield />
-                            Admin Management
-                        </SidebarMenuButton>
-                    </Link>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <Link href="/admin/users">
-                    <SidebarMenuButton tooltip="User Management">
-                      <Users />
-                      User Management
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
               </SidebarMenu>
             <div className="mt-auto">
                 <SidebarMenu>

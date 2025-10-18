@@ -45,8 +45,6 @@ export default function AdminHeader() {
 
    const navItems = [
     { href: '/admin/dashboard', icon: Home, label: 'Dashboard' },
-    { href: '/admin/management', icon: Home, label: 'Admin Management' },
-    { href: '/admin/users', icon: Home, label: 'User Management' },
   ];
 
   const MobileNavLinks = () => {
