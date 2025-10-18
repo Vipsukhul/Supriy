@@ -67,19 +67,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     checkAdminRole();
   }, [user, isUserLoading, firestore, router, pathname, toast]);
 
-  // Render children directly if we're on the login page or the user is not yet determined.
-  if (authStatus === 'no-user' || pathname === '/admin/login') {
+  // Render children directly if we're on the login page.
+  if (pathname === '/admin/login') {
     return <>{children}</>;
   }
-
+  
   // While checking auth state or role, show a full-page loader.
-  if (authStatus === 'loading') {
+  if (authStatus === 'loading' || authStatus === 'no-user') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
       </div>
     );
   }
+
 
   // If the user is authorized, render the full admin layout with its children.
   if (authStatus === 'authorized') {
