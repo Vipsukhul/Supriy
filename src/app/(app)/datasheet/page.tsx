@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -430,3 +429,5 @@ function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProp
         </Dialog>
     )
 }
+
+    

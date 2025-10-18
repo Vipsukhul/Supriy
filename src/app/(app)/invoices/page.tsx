@@ -208,7 +208,7 @@ export default function InvoicesPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -253,7 +253,7 @@ export default function InvoicesPage() {
                                 <CollapsibleContent asChild>
                                     <TableRow>
                                         <TableCell colSpan={8} className="p-0">
-                                            <div className="p-4 bg-muted/50">
+                                            <div className="p-4 bg-muted/50 overflow-x-auto">
                                                 <h4 className="font-semibold mb-2">Invoices for {summary.period}</h4>
                                                 <Table>
                                                     <TableHeader>
