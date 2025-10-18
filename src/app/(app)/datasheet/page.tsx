@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Eye, Loader2 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { collection, query, where, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { FinancialRecord, Customer } from "@/models/data.model";
 import type { CustomerData, EnrichedInvoice } from "@/models/view.model";
 import { useMemoFirebase } from "@/firebase/provider";
@@ -28,6 +28,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { useToast } from "@/hooks/use-toast";
 
 const financialYears = [
     { value: "2026", label: "2026-2027" },
@@ -69,6 +71,7 @@ const getAgingBucket = (invoiceDate: string): keyof CustomerData['aging'] => {
 
 export default function DatasheetPage() {
   const firestore = useFirestore();
+  const { toast } = useToast();
   const [financialYear, setFinancialYear] = useState<string>("");
   const [months, setMonths] = useState<{value: string, label: string}[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("");
@@ -101,39 +104,44 @@ export default function DatasheetPage() {
 
   useEffect(() => {
     if (records) {
+        const groupedByCustomer: Record<string, { recordId: string, data: FinancialRecord }[]> = {};
+
+        records.forEach(record => {
+            if (!groupedByCustomer[record.customerCode]) {
+                groupedByCustomer[record.customerCode] = [];
+            }
+            groupedByCustomer[record.customerCode].push({ recordId: record.id, data: record });
+        });
+
         const newCustomerData: Record<string, CustomerData> = {};
         
-        records.forEach(record => {
-            record.invoices.forEach(invoice => {
-                const customerCode = record.customerCode;
-                if (!newCustomerData[customerCode]) {
-                    newCustomerData[customerCode] = {
-                        customerCode,
-                        customerName: customersMap[customerCode] || 'Loading...',
-                        aging: {
-                            days0_30: 0,
-                            days31_90: 0,
-                            days91_180: 0,
-                            days181_365: 0,
-                            above1Year: 0,
-                            unclassified: 0
-                        },
-                        invoices: [],
-                        remarks: 'None',
-                        notes: '',
-                    };
-                }
+        for (const customerCode in groupedByCustomer) {
+            const customerRecords = groupedByCustomer[customerCode];
+            const firstRecord = customerRecords[0].data; // Use first record for remarks/notes
 
-                const bucket = getAgingBucket(invoice.invoiceDate);
-                newCustomerData[customerCode].aging[bucket] += invoice.outstandingAmount;
-                newCustomerData[customerCode].invoices.push({
-                    ...invoice,
-                    dispute: 'No', // Default value
-                    note: '', // Default value
+            newCustomerData[customerCode] = {
+                customerCode,
+                customerName: customersMap[customerCode] || 'Loading...',
+                aging: { days0_30: 0, days31_90: 0, days91_180: 0, days181_365: 0, above1Year: 0, unclassified: 0 },
+                invoices: [],
+                remarks: firstRecord.remarks || 'None',
+                notes: firstRecord.notes || '',
+                recordId: customerRecords[0].recordId // Assuming one record per customer per month
+            };
+
+            customerRecords.forEach(({ data: record }) => {
+                record.invoices.forEach(invoice => {
+                    const bucket = getAgingBucket(invoice.invoiceDate);
+                    newCustomerData[customerCode].aging[bucket] += invoice.outstandingAmount;
+                    newCustomerData[customerCode].invoices.push({
+                        ...invoice,
+                        dispute: invoice.dispute || 'No',
+                        note: invoice.note || '',
+                    });
                 });
             });
-        });
-        setCustomerData(prevData => ({...prevData, ...newCustomerData}));
+        }
+        setCustomerData(newCustomerData);
     }
   }, [records, customersMap]);
 
@@ -154,6 +162,9 @@ export default function DatasheetPage() {
   }
 
   const handleFieldChange = (customerCode: string, field: 'remarks' | 'notes', value: string) => {
+      const customerInfo = customerData[customerCode];
+      if (!customerInfo || !customerInfo.recordId) return;
+
       setCustomerData(prev => ({
           ...prev,
           [customerCode]: {
@@ -161,6 +172,42 @@ export default function DatasheetPage() {
               [field]: value
           }
       }));
+
+      const recordRef = doc(firestore, 'financialRecords', customerInfo.recordId);
+      updateDocumentNonBlocking(recordRef, { [field]: value });
+  }
+
+  const handleInvoicesUpdate = async (customerCode: string, updatedInvoices: EnrichedInvoice[]) => {
+      const customerInfo = customerData[customerCode];
+      if (!customerInfo || !customerInfo.recordId) return;
+
+      // Update local state first for immediate UI feedback
+      setCustomerData(prev => ({
+        ...prev,
+        [customerCode]: {
+            ...prev[customerCode],
+            invoices: updatedInvoices
+        }
+      }));
+      
+      const recordRef = doc(firestore, 'financialRecords', customerInfo.recordId);
+
+      // We need to update the entire invoices array.
+      try {
+        await updateDoc(recordRef, { invoices: updatedInvoices });
+        toast({
+            title: "Success",
+            description: "Invoice details updated successfully.",
+        });
+      } catch (error: any) {
+        console.error("Error updating invoices:", error);
+        toast({
+            variant: "destructive",
+            title: "Update Failed",
+            description: "Could not save invoice details. " + error.message,
+        });
+        // Optionally revert local state on failure
+      }
   }
 
   const isLoading = recordsLoading || customersLoading;
@@ -252,7 +299,8 @@ export default function DatasheetPage() {
                       <TableCell>
                         <Textarea 
                             value={item.notes} 
-                            onChange={(e) => handleFieldChange(item.customerCode, 'notes', e.target.value)}
+                            onBlur={(e) => handleFieldChange(item.customerCode, 'notes', e.target.value)}
+                            onChange={(e) => setCustomerData(prev => ({...prev, [item.customerCode]: {...prev[item.customerCode], notes: e.target.value}}))}
                             className="min-h-[60px]"
                         />
                       </TableCell>
@@ -261,7 +309,10 @@ export default function DatasheetPage() {
                         N/A
                       </TableCell>
                       <TableCell>
-                        <CustomerInvoicesDialog customer={item} />
+                        <CustomerInvoicesDialog 
+                            customer={item} 
+                            onSave={handleInvoicesUpdate}
+                        />
                       </TableCell>
                     </TableRow>
                   ))
@@ -281,17 +332,36 @@ export default function DatasheetPage() {
   );
 }
 
-function CustomerInvoicesDialog({ customer }: { customer: CustomerData }) {
+interface CustomerInvoicesDialogProps {
+    customer: CustomerData;
+    onSave: (customerCode: string, invoices: EnrichedInvoice[]) => void;
+}
+
+function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProps) {
     const [invoices, setInvoices] = useState<EnrichedInvoice[]>(customer.invoices);
+    const [isOpen, setIsOpen] = useState(false);
+
+    useEffect(() => {
+        // When the dialog is opened, sync its internal state with the latest prop from parent
+        if (isOpen) {
+            setInvoices(customer.invoices);
+        }
+    }, [isOpen, customer.invoices]);
+
 
     const handleInvoiceChange = (invoiceNumber: string, field: 'dispute' | 'note', value: string) => {
         setInvoices(prev => prev.map(inv => 
             inv.invoiceNumber === invoiceNumber ? { ...inv, [field]: value } : inv
         ));
     };
+
+    const handleSaveChanges = () => {
+        onSave(customer.customerCode, invoices);
+        setIsOpen(false);
+    }
     
     return (
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 <Button variant="ghost" size="icon">
                     <Eye className="h-5 w-5" />
@@ -342,6 +412,9 @@ function CustomerInvoicesDialog({ customer }: { customer: CustomerData }) {
                             ))}
                         </TableBody>
                     </Table>
+                </div>
+                <div className="pt-4 flex justify-end">
+                    <Button onClick={handleSaveChanges}>Save Changes</Button>
                 </div>
             </DialogContent>
         </Dialog>

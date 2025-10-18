@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -105,6 +106,15 @@
         "region": {
           "type": "string",
           "description": "The geographical region associated with the invoice."
+        },
+        "dispute": {
+            "type": "string",
+            "description": "Whether the invoice is in dispute.",
+            "enum": ["Yes", "No"]
+        },
+        "note": {
+            "type": "string",
+            "description": "A note specific to this invoice."
         }
       },
       "required": [
@@ -138,6 +148,15 @@
           "items": {
             "$ref": "#/backend/entities/Invoice"
           }
+        },
+        "remarks": {
+            "type": "string",
+            "description": "Monthly remarks for this customer.",
+            "enum": ["Payment Received", "Partial Payment Received", "Under Follow up", "Dispute", "None"]
+        },
+        "notes": {
+            "type": "string",
+            "description": "General notes for this customer for the month."
         }
       },
       "required": [

@@ -20,4 +20,5 @@ export interface CustomerData {
     invoices: EnrichedInvoice[];
     remarks: 'Payment Received' | 'Partial Payment Received' | 'Under Follow up' | 'Dispute' | 'None';
     notes: string;
+    recordId: string; // To know which document to update
 }

@@ -5,6 +5,8 @@ export interface Invoice {
     invoiceAmount: number;
     outstandingAmount: number;
     region?: string;
+    dispute?: 'Yes' | 'No';
+    note?: string;
 }
 
 export interface FinancialRecord {
@@ -12,11 +14,11 @@ export interface FinancialRecord {
     year: number;
     month: number;
     invoices: Invoice[];
+    remarks?: 'Payment Received' | 'Partial Payment Received' | 'Under Follow up' | 'Dispute' | 'None';
+    notes?: string;
 }
 
 export interface Customer {
     customerCode: string;
     customerName: string;
 }
-
-    
