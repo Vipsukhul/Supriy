@@ -87,6 +87,8 @@ export default function SignupPage() {
       const userDocRef = doc(firestore, "users", userAuth.uid);
       setDocumentNonBlocking(userDocRef, newUser, { merge: true });
 
+      await auth.signOut();
+
       toast({
         title: "Signup Successful",
         description: "Your account has been created. Please login.",
@@ -105,7 +107,7 @@ export default function SignupPage() {
     }
   }
 
-  if (isUserLoading || user) {
+  if (isUserLoading && user) { // check for user here to prevent showing signup page to logged in user
     return (
         <div className="flex items-center justify-center min-h-screen">
             <p>Loading...</p>
