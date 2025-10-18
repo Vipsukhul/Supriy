@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -46,7 +47,6 @@ export default function AdminLoginPage() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -57,17 +57,14 @@ export default function AdminLoginPage() {
   });
   
   useEffect(() => {
-    if (!isUserLoading) {
-      setAuthChecked(true);
-      if (user) {
-        const checkAdmin = async () => {
-            const userDoc = await getDoc(doc(firestore, "users", user.uid));
-            if (userDoc.exists() && userDoc.data().role === 'admin') {
-                router.push('/admin/dashboard');
-            }
-        };
-        checkAdmin();
-      }
+    if (!isUserLoading && user) {
+      const checkAdmin = async () => {
+          const userDoc = await getDoc(doc(firestore, "users", user.uid));
+          if (userDoc.exists() && userDoc.data().role === 'admin') {
+              router.push('/admin/dashboard');
+          }
+      };
+      checkAdmin();
     }
   }, [user, isUserLoading, router, firestore]);
 
@@ -106,8 +103,20 @@ export default function AdminLoginPage() {
     }
   }
 
-  if (isUserLoading || !authChecked) {
+  if (isUserLoading) {
     return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // If a user is logged in but they are not an admin, they should not see this page.
+  // The useEffect will handle redirection for admins, but for non-admins, we can just show a spinner or a blank page before they are redirected elsewhere by a higher-level layout.
+  // Or, if we expect them to be redirected by a different part of the app, we can just let this render.
+  // For now, we will assume that if a user is logged in, they will be redirected. If not, the form will show.
+  if (!isUserLoading && user) {
+     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
       </div>
