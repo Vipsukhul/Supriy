@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from 'react';
@@ -7,10 +8,11 @@ import { useAuth, useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown } from 'lucide-react';
+import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -48,6 +50,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { href: '/invoices', icon: FileText, label: 'Invoices' },
   ];
 
+  const NavLinks = () => (
+    <nav className="grid items-start px-4 text-sm font-medium">
+      {navItems.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+            pathname === item.href && "bg-muted text-primary"
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
       <div className="hidden border-r bg-muted/40 lg:block">
@@ -58,28 +78,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
           <div className="flex-1 overflow-auto py-2">
-            <nav className="grid items-start px-4 text-sm font-medium">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                    pathname === item.href && "bg-muted text-primary"
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <NavLinks />
           </div>
         </div>
       </div>
       <div className="flex flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-6">
            <div className="lg:hidden">
-            <Logo />
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button size="icon" variant="outline" className="shrink-0">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle navigation menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="flex flex-col">
+                <div className="flex h-14 items-center border-b px-6">
+                  <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                    <Logo />
+                  </Link>
+                </div>
+                <div className="flex-1 overflow-auto py-2">
+                    <NavLinks />
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
           <div className="w-full flex-1" />
           <DropdownMenu>
