@@ -176,7 +176,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         {children}
       </main>
-      <footer className="flex items-center justify-center p-4 border-t bg-background">
+      <footer className="flex flex-col sm:flex-row items-center justify-between p-4 border-t bg-background gap-4">
+        <div className="flex items-center gap-2">
+            <Logo />
+        </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span>©️ Vipul S</span>
           <div className="flex items-center gap-3">
