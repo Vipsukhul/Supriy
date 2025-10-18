@@ -23,20 +23,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized' | 'no-user'>('loading');
 
   useEffect(() => {
-    // If the user is on the login page, we don't need to do any auth checks here.
-    // The login page has its own logic to redirect if a user is already signed in.
+    // If we're on the login page, we don't need to do any auth checks here.
     if (pathname === '/admin/login') {
-      setAuthStatus('no-user'); // Effectively bypasses the layout's auth protection.
+      setAuthStatus('no-user'); // This indicates that the layout should not guard the route.
       return;
     }
 
-    // If Firebase auth is still loading, wait.
     if (isUserLoading) {
       setAuthStatus('loading');
       return;
     }
     
-    // If there is no authenticated user, redirect to the admin login page.
     if (!user) {
       setAuthStatus('no-user');
       router.replace("/admin/login");
@@ -52,18 +49,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (userDoc.exists() && userDoc.data().role === 'admin') {
           setAuthStatus('authorized');
         } else {
-          // User is logged in but is NOT an admin.
           setAuthStatus('unauthorized');
-          router.replace('/dashboard'); 
           toast({
             variant: "destructive",
             title: "Access Denied",
             description: "You do not have administrative privileges.",
           });
+          router.replace('/dashboard'); 
         }
       } catch (error) {
         console.error("Error checking admin role:", error);
-        setAuthStatus('unauthorized'); // Treat errors as unauthorized.
+        setAuthStatus('unauthorized');
         router.replace('/dashboard');
       }
     };
@@ -71,7 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     checkAdminRole();
   }, [user, isUserLoading, firestore, router, pathname, toast]);
 
-  // If the user is on the login page, render the children directly without the layout.
+  // Render children directly if we're on the login page or the user is not yet determined.
   if (authStatus === 'no-user' || pathname === '/admin/login') {
     return <>{children}</>;
   }
