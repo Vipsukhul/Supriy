@@ -83,7 +83,7 @@ export default function SignupPage() {
       const [firstName, ...lastNameParts] = values.name.split(' ');
       const lastName = lastNameParts.join(' ');
       
-      const role: Role = adminEmails.includes(values.email) ? 'admin' : 'Guest';
+      const role: Role = adminEmails.includes(values.email.toLowerCase()) ? 'admin' : 'Guest';
 
       const newUser: User = {
         id: userAuth.uid,
@@ -97,8 +97,12 @@ export default function SignupPage() {
       };
 
       const userDocRef = doc(firestore, "users", userAuth.uid);
-      setDocumentNonBlocking(userDocRef, newUser, { merge: true });
+      // We use setDoc here and await it to ensure the user document is created before we proceed.
+      // The non-blocking version is great for updates, but for signup, it's better to be sure.
+      await setDocumentNonBlocking(userDocRef, newUser, {});
 
+      // Sign out the user immediately after signup so they are forced to log in.
+      // This is a common pattern to ensure the auth state is clean.
       await auth.signOut();
 
       toast({
@@ -109,10 +113,14 @@ export default function SignupPage() {
       router.push('/login');
 
     } catch (error: any) {
+      let errorMessage = "An unexpected error occurred.";
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "This email address is already in use.";
+      }
       toast({
         variant: "destructive",
         title: "Signup Failed",
-        description: error.message || "An unexpected error occurred.",
+        description: errorMessage,
       });
     } finally {
         setIsSubmitting(false);
