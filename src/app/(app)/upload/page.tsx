@@ -23,6 +23,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UploadCloud } from 'lucide-react';
 import type { Invoice, FinancialRecord, Customer } from "@/models/data.model";
 
+const financialYears = [
+    { value: "2026", label: "2026-2027" },
+    { value: "2025", label: "2025-2026" },
+    { value: "2024", label: "2024-2025" },
+    { value: "2023", label: "2023-2024" },
+];
+
+const getMonthsForYear = (startYear: number) => {
+    const months = [];
+    const endYear = startYear + 1;
+    const monthNames = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+    const monthNumbers = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
+
+    for(let i=0; i<12; i++) {
+        const month = monthNumbers[i];
+        const year = month >= 4 ? startYear : endYear;
+        const yearSuffix = year.toString().slice(-2);
+        months.push({
+            value: `${month}`,
+            label: `${monthNames[i]}-${yearSuffix}`
+        });
+    }
+    return months;
+}
+
+
 export default function UploadPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -31,6 +57,8 @@ export default function UploadPage() {
   // State for manual entry form
   const [financialYear, setFinancialYear] = useState("");
   const [month, setMonth] = useState("");
+  const [months, setMonths] = useState<{value: string, label: string}[]>([]);
+
   const [customerCode, setCustomerCode] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -38,6 +66,16 @@ export default function UploadPage() {
   const [invoiceDate, setInvoiceDate] = useState("");
   const [outstandingAmount, setOutstandingAmount] = useState("");
   const [region, setRegion] = useState("");
+
+  const handleYearChange = (year: string) => {
+    setFinancialYear(year);
+    setMonth("");
+    if (year) {
+        setMonths(getMonthsForYear(parseInt(year)));
+    } else {
+        setMonths([]);
+    }
+  }
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +147,7 @@ export default function UploadPage() {
         // Reset form
         setFinancialYear('');
         setMonth('');
+        setMonths([]);
         setCustomerCode('');
         setCustomerName('');
         setInvoiceNumber('');
@@ -176,37 +215,27 @@ export default function UploadPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    <div className="space-y-2">
                         <Label>Financial Year</Label>
-                        <Select onValueChange={setFinancialYear} value={financialYear} disabled={isSubmitting}>
+                        <Select onValueChange={handleYearChange} value={financialYear} disabled={isSubmitting}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select year" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="2026">2026-2027</SelectItem>
-                                <SelectItem value="2025">2025-2026</SelectItem>
-                                <SelectItem value="2024">2024-2025</SelectItem>
-                                <SelectItem value="2023">2023-2024</SelectItem>
+                                {financialYears.map(fy => (
+                                    <SelectItem key={fy.value} value={fy.value}>{fy.label}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                    </div>
                     <div className="space-y-2">
                         <Label>Month</Label>
-                        <Select onValueChange={setMonth} value={month} disabled={isSubmitting}>
+                        <Select onValueChange={setMonth} value={month} disabled={isSubmitting || !financialYear}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select month" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="4">April</SelectItem>
-                                <SelectItem value="5">May</SelectItem>
-                                <SelectItem value="6">June</SelectItem>
-                                <SelectItem value="7">July</SelectItem>
-                                <SelectItem value="8">August</SelectItem>
-                                <SelectItem value="9">September</SelectItem>
-                                <SelectItem value="10">October</SelectItem>
-                                <SelectItem value="11">November</SelectItem>
-                                <SelectItem value="12">December</SelectItem>
-                                <SelectItem value="1">January</SelectItem>
-                                <SelectItem value="2">February</SelectItem>
-                                <SelectItem value="3">March</SelectItem>
+                                {months.map(m => (
+                                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                    </div>
