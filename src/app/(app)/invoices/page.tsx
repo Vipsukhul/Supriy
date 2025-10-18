@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -378,5 +378,3 @@ export default function InvoicesPage() {
     </div>
   );
 }
-
-    
