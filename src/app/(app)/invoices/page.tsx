@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 export default function InvoicesPage() {
   const invoices: any[] = [];
@@ -32,8 +34,43 @@ export default function InvoicesPage() {
       <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
       <Card>
         <CardHeader>
-          <CardTitle>Recent Invoices</CardTitle>
-          <CardDescription>A list of your most recent invoices.</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+              <div>
+                  <CardTitle>Recent Invoices</CardTitle>
+                  <CardDescription>A list of your most recent invoices.</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                  <Select>
+                      <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Financial Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="2024">2024-2025</SelectItem>
+                          <SelectItem value="2023">2023-2024</SelectItem>
+                          <SelectItem value="2022">2022-2023</SelectItem>
+                      </SelectContent>
+                  </Select>
+                  <Select>
+                      <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="1">January</SelectItem>
+                          <SelectItem value="2">February</SelectItem>
+                          <SelectItem value="3">March</SelectItem>
+                          <SelectItem value="4">April</SelectItem>
+                          <SelectItem value="5">May</SelectItem>
+                          <SelectItem value="6">June</SelectItem>
+                          <SelectItem value="7">July</SelectItem>
+                          <SelectItem value="8">August</SelectItem>
+                          <SelectItem value="9">September</SelectItem>
+                          <SelectItem value="10">October</SelectItem>
+                          <SelectItem value="11">November</SelectItem>
+                          <SelectItem value="12">December</SelectItem>
+                      </SelectContent>
+                  </Select>
+              </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">

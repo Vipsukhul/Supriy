@@ -1,74 +1,87 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles
- * and allows public read access to customer and financial record data.
- *
- * Data Structure:
- * - /users/{userId}: Stores individual user profiles, secured by owner-only access.
- * - /customers/{customerId}: Stores customer information, publicly readable.
- * - /financialRecords/{recordId}: Stores financial records, publicly readable.
- *
- * Key Security Decisions:
- * - Users can only read/write their own profile data.
- * - Customer and financial record data is publicly readable but only writeable by a server.
- *   This assumes an external mechanism (e.g., a Cloud Function) is in place to manage this data.
- * - Listing of user documents is disallowed.
+ * @description This ruleset enforces a strict user-ownership model for user profiles and allows public read access to customer and financial record data. Write access to customer and financial record data is not granted and requires further definition.
+ * @dataStructure
+ *   - /users/{userId}: Stores individual user profiles, accessible only to the owning user.
+ *   - /customers/{customerId}: Stores customer information, publicly readable.
+ *   - /financialRecords/{recordId}: Stores monthly financial records, publicly readable.
+ * @keySecurityDecisions
+ *   - User profiles are strictly private, accessible only to the authenticated user.
+ *   - Customer and financial record data is publicly readable.
+ *   - Write permissions for customers and financial records are explicitly denied.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents. Only the authenticated user can read or write their own profile.
+     * @description Manages user profile data, ensuring only the authenticated user can access their own profile.
      * @path /users/{userId}
-     * @allow (create) User with UID "user123" can create their profile document.
-     * @allow (get, update, delete) User with UID "user123" can get, update, and delete their own profile document.
-     * @deny (create, get, update, delete) User with UID "user456" cannot access the profile document of user with UID "user123".
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with UID 'user123' creates their profile at /users/user123.
+     * @deny (create) User with UID 'user123' attempts to create a profile at /users/user456.
+     * @allow (get) User with UID 'user123' reads their profile at /users/user123.
+     * @deny (get) User with UID 'user123' attempts to read profile at /users/user456.
+     * @allow (update) User with UID 'user123' updates their profile at /users/user123.
+     * @deny (update) User with UID 'user123' attempts to update profile at /users/user456.
+     * @allow (delete) User with UID 'user123' deletes their profile at /users/user123.
+     * @deny (delete) User with UID 'user123' attempts to delete profile at /users/user456.
+     * @allow (list) User with UID 'user123' lists the /users collection. This is disallowed.
+     * @principle Enforces document ownership for all operations on user profiles.
      */
     match /users/{userId} {
+      // Helper function to check if the request is made by the owner.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Helper function to check if the request is made by an existing owner.
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allow the user to create their own profile if the UID matches.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+
+      // Allow the user to get their own profile.
       allow get: if isOwner(userId);
+
+      // Disallow listing the /users collection.
       allow list: if false;
-      allow create: if isOwner(userId) && request.auth.uid == userId;
-      allow update: if isExistingOwner(userId) && request.auth.uid == userId;
-      allow delete: if isExistingOwner(userId) && request.auth.uid == userId;
+
+      // Allow the user to update their own profile if they are the owner and the id is immutable.
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+
+      // Allow the user to delete their own profile if they are the owner.
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to customer documents. Allows public read access, but restricts writes.
+     * @description Allows public read access to customer data.
      * @path /customers/{customerId}
-     * @allow (get, list) Any user (or no user) can read customer data.
-     * @deny (create, update, delete) No user can create, update, or delete customer data through the client.
-     * @principle Allows public read access for customer data, but restricts writes.
+     * @allow (get) Any user can retrieve customer data.
+     * @allow (list) Any user can list customer data.
+     * @deny (create) No user can create customer data through client-side rules.
+     * @deny (update) No user can update customer data through client-side rules.
+     * @deny (delete) No user can delete customer data through client-side rules.
+     * @principle Provides public read access while restricting write access.
      */
     match /customers/{customerId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow create, update, delete: if false; // TODO: Add authorization rules for creating/updating/deleting customer data.
     }
 
     /**
-     * @description Controls access to financial record documents. Allows public read access, but restricts writes.
+     * @description Allows public read access to financial records.
      * @path /financialRecords/{recordId}
-     * @allow (get, list) Any user (or no user) can read financial record data.
-     * @deny (create, update, delete) No user can create, update, or delete financial record data through the client.
-     * @principle Allows public read access for financial record data, but restricts writes.
+     * @allow (get) Any user can retrieve financial record data.
+     * @allow (list) Any user can list financial record data.
+     * @deny (create) No user can create financial record data through client-side rules.
+     * @deny (update) No user can update financial record data through client-side rules.
+     * @deny (delete) No user can delete financial record data through client-side rules.
+     * @principle Provides public read access while restricting write access.
      */
     match /financialRecords/{recordId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
-    }
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+      allow create, update, delete: if false; // TODO: Add authorization rules for creating/updating/deleting financial record data.
     }
   }
 }
