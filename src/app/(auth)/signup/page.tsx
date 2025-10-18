@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -22,7 +23,15 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Mail, Lock, User } from "lucide-react";
+import { Mail, Lock, User as UserIcon } from "lucide-react";
+import { useAuth, useFirestore, useUser } from "@/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc } from "firebase/firestore";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { useEffect, useState } from "react";
+import type { User } from "@/models/user.model";
+import { useToast } from "@/hooks/use-toast";
+
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -35,6 +44,13 @@ const formSchema = z.object({
 });
 
 export default function SignupPage() {
+  const router = useRouter();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -45,9 +61,49 @@ export default function SignupPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    // TODO: Handle signup logic
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, isUserLoading, router]);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const userAuth = userCredential.user;
+
+      const [firstName, ...lastNameParts] = values.name.split(' ');
+      const lastName = lastNameParts.join(' ');
+
+      const newUser: User = {
+        id: userAuth.uid,
+        firstName,
+        lastName,
+        email: values.email,
+        signUpDate: new Date().toISOString(),
+      };
+
+      const userDocRef = doc(firestore, "users", userAuth.uid);
+      setDocumentNonBlocking(userDocRef, newUser, { merge: true });
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Signup Failed",
+        description: error.message || "An unexpected error occurred.",
+      });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
+  if (isUserLoading || user) {
+    return (
+        <div className="flex items-center justify-center min-h-screen">
+            <p>Loading...</p>
+        </div>
+    );
   }
 
   return (
@@ -68,12 +124,13 @@ export default function SignupPage() {
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <FormControl>
                       <Input
                         placeholder="John Doe"
                         {...field}
                         className="pl-10"
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                   </div>
@@ -95,6 +152,7 @@ export default function SignupPage() {
                         placeholder="m@example.com"
                         {...field}
                         className="pl-10"
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                   </div>
@@ -116,6 +174,7 @@ export default function SignupPage() {
                         placeholder="••••••••"
                         {...field}
                         className="pl-10"
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                   </div>
@@ -137,6 +196,7 @@ export default function SignupPage() {
                         placeholder="••••••••"
                         {...field}
                         className="pl-10"
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                   </div>
@@ -146,8 +206,8 @@ export default function SignupPage() {
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full">
-              Create account
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Creating account...' : 'Create account'}
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
