@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -23,6 +22,7 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { setRole } from "@/ai/flows/set-role-flow";
 
 export default function UserManagementPage() {
   const firestore = useFirestore();
@@ -38,6 +38,10 @@ export default function UserManagementPage() {
   
   const handleRoleChange = async (userId: string, newRole: Role) => {
     try {
+        // First, update the custom claim. This is the source of truth for security rules.
+        await setRole({ userId, role: newRole });
+
+        // Then, update the Firestore document. This is for display purposes in the app.
         const userDocRef = doc(firestore, "users", userId);
         await updateDoc(userDocRef, { role: newRole });
 
@@ -112,7 +116,7 @@ export default function UserManagementPage() {
         isOpen={isAddUserDialogOpen}
         onOpenChange={setIsAddUserDialogOpen}
         allowedRoles={["admin", "Country Manager", "Manager", "Engineer", "Guest"]}
-        defaultRole="admin"
+        defaultRole="Guest"
     />
     <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
@@ -193,7 +197,7 @@ export default function UserManagementPage() {
                     ) : (
                     <TableRow>
                         <TableCell colSpan={6} className="h-24 text-center">
-                        {error ? 'You do not have permission to view users.' : 'No users found.'}
+                        {error ? `You do not have permission to view users. ${error.message}` : 'No users found.'}
                         </TableCell>
                     </TableRow>
                     )}

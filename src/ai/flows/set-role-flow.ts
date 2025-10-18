@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -44,6 +43,19 @@ const setRoleFlow = ai.defineFlow(
     name: 'setRoleFlow',
     inputSchema: SetRoleInputSchema,
     outputSchema: z.void(),
+    auth: {
+      // This policy ensures that only users who are ALREADY admins
+      // can execute this flow to change other users' roles.
+      // This is a critical security measure.
+      policy: async (auth, input) => {
+        if (!auth) {
+          throw new Error('Authorization required.');
+        }
+        if (auth.token.role !== 'admin') {
+          throw new Error('Only admins can change user roles.');
+        }
+      },
+    },
   },
   async ({ userId, role }) => {
     try {
@@ -63,5 +75,3 @@ const setRoleFlow = ai.defineFlow(
     }
   }
 );
-
-    

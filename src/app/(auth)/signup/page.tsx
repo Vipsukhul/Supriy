@@ -31,6 +31,7 @@ import { useEffect, useState } from "react";
 import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { setRole } from "@/ai/flows/set-role-flow";
 
 
 const formSchema = z.object({
@@ -85,6 +86,10 @@ export default function SignupPage() {
       
       const role: Role = adminEmails.includes(values.email.toLowerCase()) ? 'admin' : 'Guest';
 
+      // Set the custom claim *before* creating the Firestore document.
+      // This is crucial for the security rules to work on first login.
+      await setRole({ userId: userAuth.uid, role });
+
       const newUser: User = {
         id: userAuth.uid,
         firstName,
@@ -99,7 +104,8 @@ export default function SignupPage() {
       const userDocRef = doc(firestore, "users", userAuth.uid);
       await setDoc(userDocRef, newUser);
 
-      // Sign out the user immediately after signup so they are forced to log in.
+      // Sign out the user immediately after signup so they are forced to log in
+      // which ensures their new auth token (with the custom claim) is loaded.
       await auth.signOut();
 
       toast({
@@ -113,11 +119,11 @@ export default function SignupPage() {
       let errorMessage = "An unexpected error occurred.";
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "This email address is already in use.";
-      } else if (error.code === 'permission-denied') {
-          errorMessage = "Could not save user data. Please contact support.";
+      } else if (error.message.includes('permission-denied') || error.code === 'permission-denied') {
+          errorMessage = "Could not save user data due to security rules. Please contact support.";
           // If Firestore write fails, we should ideally delete the created auth user
           if (userAuth) {
-            await userAuth.delete();
+            await userAuth.delete().catch(delErr => console.error("Failed to clean up auth user after firestore failure:", delErr));
           }
       }
       toast({
