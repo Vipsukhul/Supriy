@@ -52,24 +52,25 @@ const calculateSummaries = (records: (FinancialRecord & {id: string})[], custome
     const summaryByPeriod: Record<string, InvoiceSummary> = {};
 
     records.forEach(record => {
-        const periodLabel = `${new Date(record.year, record.month - 1).toLocaleString('default', { month: 'short' })}-${record.year.toString().slice(-2)}`;
-        
-        if (!summaryByPeriod[periodLabel]) {
-            summaryByPeriod[periodLabel] = {
-                period: periodLabel,
-                currentMonthInvoicesCount: 0,
-                previousMonthsInvoicesCount: 0, // Placeholder
-                disputedInvoicesCount: 0,
-                currentOutstanding: 0,
-                recoveredOutstanding: 0, // Placeholder
-                increasedOutstanding: 0, // Placeholder
-                invoices: [],
-            };
-        }
-
-        const summary = summaryByPeriod[periodLabel];
-        
         record.invoices.forEach(invoice => {
+            const invoiceDate = new Date(invoice.invoiceDate);
+            const periodLabel = `${invoiceDate.toLocaleString('default', { month: 'short' })}-${invoiceDate.getFullYear().toString().slice(-2)}`;
+            
+            if (!summaryByPeriod[periodLabel]) {
+                summaryByPeriod[periodLabel] = {
+                    period: periodLabel,
+                    currentMonthInvoicesCount: 0,
+                    previousMonthsInvoicesCount: 0, // Placeholder
+                    disputedInvoicesCount: 0,
+                    currentOutstanding: 0,
+                    recoveredOutstanding: 0, // Placeholder
+                    increasedOutstanding: 0, // Placeholder
+                    invoices: [],
+                };
+            }
+
+            const summary = summaryByPeriod[periodLabel];
+            
             summary.currentMonthInvoicesCount += 1;
             summary.currentOutstanding += invoice.outstandingAmount;
             if (invoice.dispute === 'Yes') {
@@ -82,8 +83,12 @@ const calculateSummaries = (records: (FinancialRecord & {id: string})[], custome
             });
         });
     });
-
-    return Object.values(summaryByPeriod).sort((a, b) => new Date(b.invoices[0].invoiceDate).getTime() - new Date(a.invoices[0].invoiceDate).getTime());
+    
+    return Object.values(summaryByPeriod).sort((a, b) => {
+        const dateA = new Date(a.invoices[0].invoiceDate);
+        const dateB = new Date(b.invoices[0].invoiceDate);
+        return dateB.getTime() - dateA.getTime();
+    });
 };
 
 export default function InvoicesPage() {
@@ -227,9 +232,8 @@ export default function InvoicesPage() {
                     </TableBody>
                 ) : monthlySummaries.length > 0 ? (
                     monthlySummaries.map((summary) => (
-                    <TableBody key={summary.period}>
-                        <Collapsible asChild>
-                            <>
+                    <Collapsible asChild key={summary.period}>
+                        <TableBody>
                                 <TableRow className="font-medium bg-transparent hover:bg-muted/50">
                                     <TableCell>
                                         <CollapsibleTrigger asChild>
@@ -277,9 +281,8 @@ export default function InvoicesPage() {
                                         </TableCell>
                                     </TableRow>
                                 </CollapsibleContent>
-                            </>
-                        </Collapsible>
-                    </TableBody>
+                        </TableBody>
+                    </Collapsible>
                     ))
                 ) : (
                     <TableBody>
@@ -297,3 +300,5 @@ export default function InvoicesPage() {
     </div>
   );
 }
+
+    
