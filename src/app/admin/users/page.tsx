@@ -1,10 +1,9 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { collection, doc, updateDoc } from "firebase/firestore";
-import { useCollection, useFirestore, useUser } from "@/firebase";
+import { useCollection, useFirestore } from "@/firebase";
 import {
   Table,
   TableBody,
@@ -16,17 +15,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Role, User } from "@/models/user.model";
 import { useMemoFirebase } from "@/firebase/provider";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AddUserDialog } from "./components/add-user-dialog";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { setRole } from "@/ai/flows/set-role-flow";
 import { useToast } from "@/hooks/use-toast";
-import { getAuth } from "firebase/auth";
 
 export default function UserManagementPage() {
   const firestore = useFirestore();
@@ -42,15 +39,16 @@ export default function UserManagementPage() {
   
   const handleRoleChange = async (userId: string, newRole: Role) => {
     try {
+        // This Genkit flow is a server-side operation to securely set a custom claim.
         await setRole({ userId, role: newRole });
         
-        // Also update the role in the Firestore document
+        // Also update the role in the Firestore document for display purposes.
         const userDocRef = doc(firestore, "users", userId);
         await updateDoc(userDocRef, { role: newRole });
 
         toast({
             title: "Role Updated",
-            description: `User role has been changed to ${newRole}. The user may need to sign out and sign back in for the changes to take full effect.`,
+            description: `User role has been changed to ${newRole}. The user must sign out and sign back in for the change to take full effect.`,
         });
 
     } catch (e: any) {
@@ -119,7 +117,7 @@ export default function UserManagementPage() {
         isOpen={isAddUserDialogOpen}
         onOpenChange={setIsAddUserDialogOpen}
         allowedRoles={["admin", "Country Manager", "Manager", "Engineer", "Guest"]}
-        defaultRole="Guest"
+        defaultRole="admin"
     />
     <div className="flex-1 space-y-4 p-4 sm:p-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
@@ -213,3 +211,5 @@ export default function UserManagementPage() {
     </>
   );
 }
+
+    

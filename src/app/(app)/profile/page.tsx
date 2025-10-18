@@ -133,7 +133,7 @@ export default function ProfilePage() {
                     <FormControl>
                         <Input
                         disabled
-                        placeholder={user?.email || "Email not available"}
+                        value={user?.email || "Email not available"}
                         />
                     </FormControl>
                     <FormMessage />
@@ -213,7 +213,7 @@ export default function ProfilePage() {
                         <FormControl>
                             <Input
                             disabled
-                            placeholder={userData?.role || "Role not available"}
+                            value={userData?.role || "Role not available"}
                             className="pl-10"
                             />
                         </FormControl>
@@ -234,3 +234,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
