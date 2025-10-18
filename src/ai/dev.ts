@@ -5,5 +5,4 @@
 
 // Example:
 // import './flows/my-awesome-flow';
-import './flows/set-role-flow';
     

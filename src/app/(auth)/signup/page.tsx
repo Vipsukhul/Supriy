@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -23,7 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Mail, Lock, User as UserIcon, Phone, Globe } from "lucide-react";
+import { Mail, Lock, User as UserIcon, Phone, Globe, Shield } from "lucide-react";
 import { useAuth, useFirestore, useUser } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -31,14 +32,13 @@ import { useEffect, useState } from "react";
 import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { setRole } from "@/ai/flows/set-role-flow";
-
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   mobileNumber: z.string().min(10, { message: "Mobile number must be at least 10 digits." }),
   region: z.string().min(2, { message: "Region is required." }),
+  role: z.string(),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
@@ -64,10 +64,22 @@ export default function SignupPage() {
       email: "",
       mobileNumber: "",
       region: "",
+      role: "Guest",
       password: "",
       confirmPassword: "",
     },
   });
+
+  const emailValue = form.watch("email");
+
+  useEffect(() => {
+    if (adminEmails.includes(emailValue.toLowerCase())) {
+        form.setValue("role", "admin");
+    } else {
+        form.setValue("role", "Guest");
+    }
+  }, [emailValue, form]);
+
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -86,13 +98,9 @@ export default function SignupPage() {
       const [firstName, ...lastNameParts] = values.name.split(' ');
       const lastName = lastNameParts.join(' ');
       
-      // 2. Determine the user's role
       const role: Role = adminEmails.includes(values.email.toLowerCase()) ? 'admin' : 'Guest';
 
-      // 3. Set the custom claim on the user's auth token. This is the source of truth for security rules.
-      await setRole({ userId: userAuth.uid, role });
-
-      // 4. Create the user document in Firestore for display and management purposes.
+      // 2. Create the user document in Firestore for display and management purposes.
       const newUser: User = {
         id: userAuth.uid,
         firstName,
@@ -106,15 +114,10 @@ export default function SignupPage() {
       
       const userDocRef = doc(firestore, "users", userAuth.uid);
       await setDoc(userDocRef, newUser);
-
-      // 5. CRITICAL STEP: Sign out the user immediately.
-      // This forces them to log in again, which ensures their new auth token (with the custom claim) is loaded.
-      // Without this, they would still have an old token without the 'admin' role.
-      await auth.signOut();
-
+      
       toast({
         title: "Signup Successful",
-        description: "Your account has been created. Please log in to continue.",
+        description: "Your account has been created. You can now log in.",
       });
 
       router.push('/login');
@@ -206,41 +209,63 @@ export default function SignupPage() {
                 </FormItem>
               )}
             />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="mobileNumber"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Mobile Number</FormLabel>
+                    <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                        <Input
+                            placeholder="123-456-7890"
+                            {...field}
+                            className="pl-10"
+                            disabled={isSubmitting}
+                        />
+                        </FormControl>
+                    </div>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="region"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Region</FormLabel>
+                    <div className="relative">
+                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                        <Input
+                            placeholder="e.g. California, USA"
+                            {...field}
+                            className="pl-10"
+                            disabled={isSubmitting}
+                        />
+                        </FormControl>
+                    </div>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
             <FormField
               control={form.control}
-              name="mobileNumber"
+              name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Mobile Number</FormLabel>
+                  <FormLabel>Role</FormLabel>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <FormControl>
                       <Input
-                        placeholder="123-456-7890"
                         {...field}
                         className="pl-10"
-                        disabled={isSubmitting}
-                      />
-                    </FormControl>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="region"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Region</FormLabel>
-                  <div className="relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <FormControl>
-                      <Input
-                        placeholder="e.g. California, USA"
-                        {...field}
-                        className="pl-10"
-                        disabled={isSubmitting}
+                        disabled
                       />
                     </FormControl>
                   </div>

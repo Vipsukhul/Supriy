@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -20,9 +21,8 @@ import { AddUserDialog } from "./components/add-user-dialog";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { setRole } from "@/ai/flows/set-role-flow";
+import { Badge } from "@/components/ui/badge";
 
 export default function UserManagementPage() {
   const firestore = useFirestore();
@@ -35,30 +35,6 @@ export default function UserManagementPage() {
   const getInitials = (firstName?: string, lastName?: string) => {
     return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase();
   }
-  
-  const handleRoleChange = async (userId: string, newRole: Role) => {
-    try {
-        // First, update the custom claim. This is the source of truth for security rules.
-        await setRole({ userId, role: newRole });
-
-        // Then, update the Firestore document. This is for display purposes in the app.
-        const userDocRef = doc(firestore, "users", userId);
-        await updateDoc(userDocRef, { role: newRole });
-
-        toast({
-            title: "Role Updated",
-            description: `User role has been changed to ${newRole}. The user must sign out and sign back in for the change to take full effect.`,
-        });
-
-    } catch (e: any) {
-        console.error("Failed to set role:", e);
-        toast({
-            variant: "destructive",
-            title: "Update Failed",
-            description: `Could not update role: ${e.message}`,
-        });
-    }
-  };
 
   if (usersLoading) {
     return (
@@ -163,18 +139,7 @@ export default function UserManagementPage() {
                         <TableCell>{user.mobileNumber}</TableCell>
                         <TableCell>{user.region}</TableCell>
                         <TableCell>
-                            <Select defaultValue={user.role} onValueChange={(newRole) => handleRoleChange(user.id, newRole as Role)}>
-                                <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder="Select role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="admin">admin</SelectItem>
-                                    <SelectItem value="Country Manager">Country Manager</SelectItem>
-                                    <SelectItem value="Manager">Manager</SelectItem>
-                                    <SelectItem value="Engineer">Engineer</SelectItem>
-                                    <SelectItem value="Guest">Guest</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>{user.role}</Badge>
                         </TableCell>
                         <TableCell>{new Date(user.signUpDate).toLocaleDateString()}</TableCell>
                          <TableCell>
