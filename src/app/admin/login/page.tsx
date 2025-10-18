@@ -57,15 +57,18 @@ export default function AdminLoginPage() {
   });
   
   useEffect(() => {
+    // If the user is loaded and exists, check if they are an admin.
     if (!isUserLoading && user) {
       const checkAdmin = async () => {
           const userDoc = await getDoc(doc(firestore, "users", user.uid));
           if (userDoc.exists() && userDoc.data().role === 'admin') {
+              // If they are an admin, redirect them to the dashboard.
               router.push('/admin/dashboard');
           }
       };
       checkAdmin();
     }
+    // If the user is not logged in, this effect does nothing, and the page will render the login form.
   }, [user, isUserLoading, router, firestore]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -82,7 +85,7 @@ export default function AdminLoginPage() {
             title: "Admin Login Successful",
             description: "Welcome back!",
           });
-          router.push('/admin/dashboard');
+          // No need to redirect here, the useEffect will handle it.
       } else {
           await auth.signOut();
           toast({
@@ -102,7 +105,8 @@ export default function AdminLoginPage() {
         setIsSubmitting(false);
     }
   }
-
+  
+  // Show a loader while we are checking the user's auth state.
   if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -111,18 +115,17 @@ export default function AdminLoginPage() {
     );
   }
 
-  // If a user is logged in but they are not an admin, they should not see this page.
-  // The useEffect will handle redirection for admins, but for non-admins, we can just show a spinner or a blank page before they are redirected elsewhere by a higher-level layout.
-  // Or, if we expect them to be redirected by a different part of the app, we can just let this render.
-  // For now, we will assume that if a user is logged in, they will be redirected. If not, the form will show.
-  if (!isUserLoading && user) {
+  // If a user is already logged in, the useEffect will redirect them.
+  // We can show a loader while that happens.
+  if (user) {
      return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
       </div>
     );
   }
-
+  
+  // If no user is logged in and loading is complete, show the login form.
   return (
      <div className="min-h-screen bg-background flex items-center justify-center p-4">
        <div className="w-full max-w-md">

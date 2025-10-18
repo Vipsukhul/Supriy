@@ -1,7 +1,6 @@
 
 "use client";
 
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { Sidebar, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel, SidebarProvider } from '@/components/ui/sidebar';
@@ -22,36 +21,59 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Wait until the initial user loading is complete
     if (isUserLoading) {
       return;
     }
+    
+    // If no user is logged in, redirect to the admin login page.
     if (!user) {
       router.push("/admin/login");
       return;
     }
 
     const checkAdminRole = async () => {
-      const userDocRef = doc(firestore, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-      if (userDoc.exists()) {
-        const userData = userDoc.data() as User;
-        if (userData.role === 'admin') {
-          setIsAdmin(true);
+      try {
+        const userDocRef = doc(firestore, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as User;
+          if (userData.role === 'admin') {
+            setIsAdmin(true);
+          } else {
+            // If the user is not an admin, deny access and redirect.
+            router.push('/login'); 
+          }
         } else {
-          router.push('/login'); // Or a dedicated "not-authorized" page
+           // If there's no user document, they can't be an admin.
+           router.push('/login');
         }
-      } else {
-         router.push('/login');
+      } catch (error) {
+        console.error("Error checking admin role:", error);
+        router.push('/login'); // Redirect on error
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkAdminRole();
   }, [user, isUserLoading, firestore, router]);
 
-  if (isLoading || !isAdmin) {
+  // While checking the user's role, show a loader.
+  if (isLoading || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // Only render the admin layout if the user is a confirmed admin.
+  if (!isAdmin) {
+     return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Redirecting...</p>
         <LoadingSpinner />
       </div>
     );
