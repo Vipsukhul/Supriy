@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -17,14 +18,17 @@ import type { User } from "@/models/user.model";
 import { useMemoFirebase } from "@/firebase/provider";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function UserManagementPage() {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
   const firestore = useFirestore();
 
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading: usersLoading, error } = useCollection<User>(usersCollectionRef);
+
+  const getInitials = (firstName?: string, lastName?: string) => {
+    return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase();
+  }
 
   if (usersLoading) {
     return (
@@ -32,13 +36,46 @@ export default function UserManagementPage() {
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
             </div>
-            <div className="space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>All Users</CardTitle>
+                    <CardDescription>A list of all users in the system.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Mobile Number</TableHead>
+                                    <TableHead>Region</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead>Sign Up Date</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {[...Array(5)].map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <Skeleton className="h-10 w-10 rounded-full" />
+                                                <div className="space-y-1">
+                                                    <Skeleton className="h-4 w-24" />
+                                                    <Skeleton className="h-3 w-32" />
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
   }
@@ -58,20 +95,29 @@ export default function UserManagementPage() {
                 <Table>
                 <TableHeader>
                     <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Mobile Number</TableHead>
-                    <TableHead>Region</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Sign Up Date</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Mobile Number</TableHead>
+                        <TableHead>Region</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Sign Up Date</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {users && users.length > 0 ? (
                     users.map((user) => (
                         <TableRow key={user.id}>
-                        <TableCell>{user.firstName} {user.lastName}</TableCell>
-                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                            <div className="flex items-center gap-3">
+                                <Avatar>
+                                    <AvatarImage data-ai-hint="person" src={`https://i.pravatar.cc/40?u=${user.id}`} />
+                                    <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <div className="font-medium">{user.firstName} {user.lastName}</div>
+                                    <div className="text-sm text-muted-foreground">{user.email}</div>
+                                </div>
+                            </div>
+                        </TableCell>
                         <TableCell>{user.mobileNumber}</TableCell>
                         <TableCell>{user.region}</TableCell>
                         <TableCell>
@@ -84,7 +130,7 @@ export default function UserManagementPage() {
                     ))
                     ) : (
                     <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
+                        <TableCell colSpan={5} className="h-24 text-center">
                         {error ? 'You do not have permission to view users.' : 'No users found.'}
                         </TableCell>
                     </TableRow>
@@ -97,3 +143,4 @@ export default function UserManagementPage() {
     </div>
   );
 }
+

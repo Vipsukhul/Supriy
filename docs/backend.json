@@ -115,6 +115,11 @@
         "note": {
             "type": "string",
             "description": "A note specific to this invoice."
+        },
+        "status": {
+            "type": "string",
+            "description": "The current status of the invoice.",
+            "enum": ["Paid", "Pending", "Overdue"]
         }
       },
       "required": [
