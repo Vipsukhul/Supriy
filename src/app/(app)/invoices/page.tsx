@@ -94,7 +94,7 @@ const calculateSummaries = (records: (FinancialRecord & {id: string})[], custome
 
 export default function InvoicesPage() {
   const firestore = useFirestore();
-  const [financialYear, setFinancialYear] = useState<string>("");
+  const [financialYear, setFinancialYear] = useState<string>("all");
 
   const financialRecordsCollectionRef = useMemoFirebase(() => collection(firestore, 'financialRecords'), [firestore]);
   const { data: records, isLoading: recordsLoading } = useCollection<FinancialRecord>(financialRecordsCollectionRef);
@@ -113,7 +113,7 @@ export default function InvoicesPage() {
   const monthlySummaries = useMemo(() => {
     if (!records || !customers) return [];
     
-    const filteredRecords = financialYear
+    const filteredRecords = financialYear && financialYear !== 'all'
         ? records.filter(r => {
             const startYear = parseInt(financialYear);
             const endYear = startYear + 1;
@@ -142,7 +142,7 @@ export default function InvoicesPage() {
                           <SelectValue placeholder="All Financial Years" />
                       </SelectTrigger>
                       <SelectContent>
-                          <SelectItem value="">All Financial Years</SelectItem>
+                          <SelectItem value="all">All Financial Years</SelectItem>
                           {financialYears.map(fy => (
                               <SelectItem key={fy.value} value={fy.value}>{fy.label}</SelectItem>
                           ))}
