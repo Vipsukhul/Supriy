@@ -8,7 +8,7 @@ import { useAuth, useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop } from 'lucide-react';
+import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop, Linkedin, Twitter } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
@@ -176,6 +176,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         {children}
       </main>
+      <footer className="flex items-center justify-center p-4 border-t bg-background">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>©️ Vipul S</span>
+          <div className="flex items-center gap-3">
+            <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
+              <Linkedin className="h-5 w-5" />
+            </a>
+            <a href="https://www.twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
+              <Twitter className="h-5 w-5" />
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
