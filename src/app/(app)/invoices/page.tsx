@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -45,9 +46,10 @@ export default function InvoicesPage() {
                           <SelectValue placeholder="Financial Year" />
                       </SelectTrigger>
                       <SelectContent>
+                          <SelectItem value="2026">2026-2027</SelectItem>
+                          <SelectItem value="2025">2025-2026</SelectItem>
                           <SelectItem value="2024">2024-2025</SelectItem>
                           <SelectItem value="2023">2023-2024</SelectItem>
-                          <SelectItem value="2022">2022-2023</SelectItem>
                       </SelectContent>
                   </Select>
                   <Select>
@@ -55,9 +57,6 @@ export default function InvoicesPage() {
                           <SelectValue placeholder="Month" />
                       </SelectTrigger>
                       <SelectContent>
-                          <SelectItem value="1">January</SelectItem>
-                          <SelectItem value="2">February</SelectItem>
-                          <SelectItem value="3">March</SelectItem>
                           <SelectItem value="4">April</SelectItem>
                           <SelectItem value="5">May</SelectItem>
                           <SelectItem value="6">June</SelectItem>
@@ -67,6 +66,9 @@ export default function InvoicesPage() {
                           <SelectItem value="10">October</SelectItem>
                           <SelectItem value="11">November</SelectItem>
                           <SelectItem value="12">December</SelectItem>
+                          <SelectItem value="1">January</SelectItem>
+                          <SelectItem value="2">February</SelectItem>
+                          <SelectItem value="3">March</SelectItem>
                       </SelectContent>
                   </Select>
               </div>
