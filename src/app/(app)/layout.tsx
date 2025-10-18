@@ -8,7 +8,7 @@ import { useAuth, useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop, Linkedin, Twitter } from 'lucide-react';
+import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop, Linkedin, Twitter, KeyRound, UserCog } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
@@ -92,10 +92,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen w-full flex-col">
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
-        <div className="md:hidden">
-          <Sheet>
+         <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0">
+              <Button variant="outline" size="icon" className="shrink-0 md:hidden">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
@@ -112,13 +111,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </SheetContent>
           </Sheet>
-        </div>
         
         <div className="flex items-center gap-4">
             <Link href="/dashboard" className="hidden md:flex items-center gap-2 font-semibold">
               <Logo />
             </Link>
-            <div className="hidden md:flex">
+            <div className="hidden md:flex ml-6">
               <DesktopNavLinks />
             </div>
         </div>
@@ -139,7 +137,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                        Settings
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                        <DropdownMenuItem>
+                            <UserCog className="mr-2 h-4 w-4" />
+                            <span>Edit User Details</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            <span>Change Password</span>
+                        </DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                 </DropdownMenuSub>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                  <DropdownMenuSeparator />
                  <DropdownMenuSub>
