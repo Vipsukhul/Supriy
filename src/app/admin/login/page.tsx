@@ -46,6 +46,7 @@ export default function AdminLoginPage() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -56,7 +57,9 @@ export default function AdminLoginPage() {
   });
   
   useEffect(() => {
-    if (!isUserLoading && user) {
+    if (!isUserLoading) {
+      setAuthChecked(true);
+      if (user) {
         const checkAdmin = async () => {
             const userDoc = await getDoc(doc(firestore, "users", user.uid));
             if (userDoc.exists() && userDoc.data().role === 'admin') {
@@ -64,6 +67,7 @@ export default function AdminLoginPage() {
             }
         };
         checkAdmin();
+      }
     }
   }, [user, isUserLoading, router, firestore]);
 
@@ -102,7 +106,7 @@ export default function AdminLoginPage() {
     }
   }
 
-  if (isUserLoading) {
+  if (isUserLoading || !authChecked) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
