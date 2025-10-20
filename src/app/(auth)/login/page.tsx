@@ -69,7 +69,6 @@ export default function LoginPage() {
   }, [user, isUserLoading, router]);
 
   useEffect(() => {
-    // This effect now correctly handles resetting fields when the role changes.
     form.reset({
       ...form.getValues(),
       region: undefined,
@@ -78,7 +77,6 @@ export default function LoginPage() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchRole]);
-
 
   useEffect(() => {
     const role = form.getValues("role");
