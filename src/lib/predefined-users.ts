@@ -24,7 +24,7 @@ const generateUsers = (): PredefinedUser[] => {
     regions.forEach(region => {
         users.push({
             name: `Manager - ${region}`,
-            email: `manager-${region.toLowerCase()}@debtflow.com`,
+            email: `manager-${region.toLowerCase().replace(/\s/g, '')}@debtflow.com`,
             role: "Manager",
             region: region,
         });
@@ -34,7 +34,7 @@ const generateUsers = (): PredefinedUser[] => {
     regions.forEach(region => {
         users.push({
             name: `Engineer - ${region}`,
-            email: `engineer-${region.toLowerCase()}@debtflow.com`,
+            email: `engineer-${region.toLowerCase().replace(/\s/g, '')}@debtflow.com`,
             role: "Engineer",
             region: region,
         });
@@ -51,19 +51,19 @@ export const getUsersForRole = (role: Role): PredefinedUser[] => {
 
 export const generatePassword = (role: Role, region?: string): string | null => {
     if (role === "Country Manager") {
-        return "CountAll1812";
+        return "allcou1812";
     }
 
     if (!region) return null;
 
-    const regionPrefix = region.slice(0, 4).toLowerCase();
+    const regionPrefix = region.slice(0, 3).toLowerCase();
 
     if (role === "Manager") {
-        return `${regionPrefix}mana1812`;
+        return `${regionPrefix}man1812`;
     }
 
     if (role === "Engineer") {
-        return `${regionPrefix}engi1812`;
+        return `${regionPrefix}eng1812`;
     }
 
     return null;

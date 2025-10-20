@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
@@ -21,6 +21,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, useUser } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -29,12 +30,14 @@ import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { regions } from "@/lib/regions";
 import { Role } from "@/models/user.model";
-import { getUsersForRole, generatePassword } from "@/lib/predefined-users";
+import { getUsersForRole } from "@/lib/predefined-users";
+import { Mail, Lock } from "lucide-react";
 
 const formSchema = z.object({
   role: z.custom<Role>(),
   region: z.string().optional(),
   email: z.string().email(),
+  password: z.string().min(1, { message: "Password is required." }),
 });
 
 const ROLES: Omit<Role, 'Guest' | 'admin'>[] = ["Country Manager", "Manager", "Engineer"];
@@ -56,15 +59,10 @@ export default function LoginPage() {
 
   const watchRole = form.watch("role");
 
-  const availableUsers = useMemo(() => {
-    if (!watchRole) return [];
-    return getUsersForRole(watchRole);
-  }, [watchRole]);
-
   useEffect(() => {
     if (watchRole !== selectedRole) {
       setSelectedRole(watchRole);
-      form.reset({ ...form.getValues(), region: undefined, email: undefined });
+      form.reset({ ...form.getValues(), region: undefined, email: undefined, password: "" });
     }
   }, [watchRole, form, selectedRole]);
 
@@ -77,20 +75,8 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     
-    const password = generatePassword(values.role, values.region);
-
-    if (!password) {
-        toast({
-            variant: "destructive",
-            title: "Login Failed",
-            description: "Could not determine the correct password for the selected role and region.",
-        });
-        setIsSubmitting(false);
-        return;
-    }
-
     try {
-      await signInWithEmailAndPassword(auth, values.email, password);
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
         description: "Welcome!",
@@ -99,7 +85,7 @@ export default function LoginPage() {
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred. Please check your selections.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = "Invalid credentials for the selected role/region. Please ensure the user exists in Firebase Authentication.";
+        errorMessage = "Invalid credentials. Please check your email and password.";
       }
       toast({
         variant: "destructive",
@@ -123,7 +109,7 @@ export default function LoginPage() {
       <CardHeader>
         <CardTitle className="text-2xl font-headline">Welcome to DebtFlow</CardTitle>
         <CardDescription>
-          Please select your role and region to log in.
+          Please select your role and enter your credentials.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -178,28 +164,52 @@ export default function LoginPage() {
             )}
             
             {watchRole && (
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
+              <>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
                     <FormItem>
-                        <FormLabel>User</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select user account" />
-                                </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                {availableUsers.map(user => (
-                                    <SelectItem key={user.email} value={user.email}>{user.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
+                      <FormLabel>Email</FormLabel>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="Enter your email"
+                            {...field}
+                            className="pl-10"
+                            disabled={isSubmitting}
+                          />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
                     </FormItem>
-                )}
-              />
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="Enter your password"
+                            {...field}
+                            className="pl-10"
+                            disabled={isSubmitting}
+                          />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
 
             <Button type="submit" className="w-full !mt-8" disabled={isSubmitting || !form.formState.isValid}>
