@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -22,25 +21,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, useUser } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { regions } from "@/lib/regions";
-import { Role } from "@/models/user.model";
-import { generatePassword } from "@/lib/predefined-users";
 import { Mail, Lock } from "lucide-react";
+import Link from 'next/link';
 
 const formSchema = z.object({
-  role: z.custom<Role>(),
-  region: z.string().optional(),
   email: z.string().email({ message: "A valid email is required." }),
   password: z.string().min(1, { message: "Password is required." }),
 });
-
-const ROLES: Omit<Role, 'Guest' | 'admin'>[] = ["Country Manager", "Manager", "Engineer"];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,63 +44,16 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      role: undefined,
-      region: undefined,
       email: "",
       password: "",
     },
   });
-
-  const watchRole = form.watch("role");
-  const watchRegion = form.watch("region");
 
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/dashboard');
     }
   }, [user, isUserLoading, router]);
-
-  useEffect(() => {
-    form.reset({
-      ...form.getValues(),
-      region: undefined,
-      email: "",
-      password: "",
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchRole]);
-
-  useEffect(() => {
-    const role = form.getValues("role");
-    const region = form.getValues("region");
-
-    if (!role) {
-      form.setValue('email', '');
-      form.setValue('password', '');
-      return;
-    }
-    
-    let emailPrefix = '';
-    if (role === 'Country Manager') {
-      emailPrefix = 'country-manager';
-    } else if (role && region) {
-      emailPrefix = `${role.toLowerCase().replace(' ', '')}-${region.toLowerCase().replace(/\s/g, '')}`;
-    }
-
-    if (emailPrefix) {
-      form.setValue('email', `${emailPrefix}@debtflow.com`);
-    } else {
-      form.setValue('email', '');
-    }
-
-    const newPassword = generatePassword(role, region);
-    if (newPassword) {
-      form.setValue('password', newPassword);
-    } else {
-      form.setValue('password', '');
-    }
-
-  }, [watchRole, watchRegion, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -117,11 +62,11 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
-        description: "Welcome!",
+        description: "Welcome back!",
       });
-      // The useEffect will handle the redirect
+      router.push('/dashboard');
     } catch (error: any) {
-      let errorMessage = "An unexpected error occurred. Please check your selections.";
+      let errorMessage = "An unexpected error occurred. Please try again.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         errorMessage = "Invalid credentials. Please check your email and password.";
       }
@@ -130,11 +75,12 @@ export default function LoginPage() {
         title: "Login Failed",
         description: errorMessage,
       });
-      setIsSubmitting(false);
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
-  if (isUserLoading || user) {
+  if (isUserLoading || (!isUserLoading && user)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
@@ -147,7 +93,7 @@ export default function LoginPage() {
       <CardHeader>
         <CardTitle className="text-2xl font-headline">Welcome to DebtFlow</CardTitle>
         <CardDescription>
-          Please select your role and enter your credentials.
+          Please enter your credentials to log in.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -155,104 +101,57 @@ export default function LoginPage() {
           <CardContent className="space-y-6">
             <FormField
               control={form.control}
-              name="role"
+              name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
+                  <FormLabel>Email</FormLabel>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your role" />
-                      </SelectTrigger>
+                      <Input
+                        type="email"
+                        placeholder="m@example.com"
+                        {...field}
+                        className="pl-10"
+                        disabled={isSubmitting}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      {ROLES.map(role => (
-                        <SelectItem key={role} value={role}>{role}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {watchRole && watchRole !== 'Country Manager' && (
-              <FormField
-                control={form.control}
-                name="region"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Region</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your region" />
-                        </Trigger>
-                      </FormControl>
-                      <SelectContent>
-                        {regions.map(region => (
-                          <SelectItem key={region} value={region}>{region}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-            
-            {watchRole && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="Enter your email"
-                            {...field}
-                            className="pl-10"
-                            disabled={isSubmitting}
-                          />
-                        </FormControl>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Enter your password"
-                            {...field}
-                            className="pl-10"
-                            disabled={isSubmitting}
-                          />
-                        </FormControl>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        className="pl-10"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <Button type="submit" className="w-full !mt-8" disabled={isSubmitting || !form.formState.isValid}>
               {isSubmitting ? 'Logging in...' : 'Login'}
             </Button>
+            <div className="text-center text-sm">
+                Don't have an account?{' '}
+                <Link href="/signup" className="underline">
+                    Sign up
+                </Link>
+            </div>
           </CardContent>
         </form>
       </Form>
