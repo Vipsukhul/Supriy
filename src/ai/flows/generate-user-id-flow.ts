@@ -4,11 +4,23 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 
 let adminApp: App;
 if (!getApps().length) {
-  adminApp = initializeApp();
+  if (process.env.NODE_ENV === 'production') {
+    // For Vercel deployment, use environment variables
+    adminApp = initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      }),
+    });
+  } else {
+    // For local development, rely on gcloud ADC
+    adminApp = initializeApp();
+  }
 } else {
   adminApp = getApps()[0];
 }
