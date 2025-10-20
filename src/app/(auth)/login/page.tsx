@@ -1,15 +1,14 @@
+
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -22,19 +21,23 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Mail, Lock } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, useUser } from "@/firebase";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
-import { useEffect, useState } from "react";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { onAuthStateChanged } from "firebase/auth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { regions } from "@/lib/regions";
+import { Role } from "@/models/user.model";
+import { getUsersForRole, generatePassword } from "@/lib/predefined-users";
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  role: z.custom<Role>(),
+  region: z.string().optional(),
+  email: z.string().email(),
 });
+
+const ROLES: Omit<Role, 'Guest' | 'admin'>[] = ["Country Manager", "Manager", "Engineer"];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,42 +45,68 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      region: undefined,
     },
   });
-  
+
+  const watchRole = form.watch("role");
+
+  const availableUsers = useMemo(() => {
+    if (!watchRole) return [];
+    return getUsersForRole(watchRole);
+  }, [watchRole]);
+
+  useEffect(() => {
+    if (watchRole !== selectedRole) {
+      setSelectedRole(watchRole);
+      form.reset({ ...form.getValues(), region: undefined, email: undefined });
+    }
+  }, [watchRole, form, selectedRole]);
+
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/dashboard');
     }
   }, [user, isUserLoading, router]);
 
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    
+    const password = generatePassword(values.role, values.region);
+
+    if (!password) {
+        toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: "Could not determine the correct password for the selected role and region.",
+        });
+        setIsSubmitting(false);
+        return;
+    }
+
     try {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        if (user) {
-          toast({
-            title: "Login Successful",
-            description: "Welcome back!",
-          });
-          unsubscribe();
-        }
+      await signInWithEmailAndPassword(auth, values.email, password);
+      toast({
+        title: "Login Successful",
+        description: "Welcome!",
       });
-      initiateEmailSignIn(auth, values.email, values.password);
+      // The useEffect will handle the redirect
     } catch (error: any) {
+      let errorMessage = "An unexpected error occurred. Please check your selections.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = "Invalid credentials for the selected role/region. Please ensure the user exists in Firebase Authentication.";
+      }
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error.message || "An unexpected error occurred.",
+        description: errorMessage,
       });
-      setIsSubmitting(false); // Only set on error
+      setIsSubmitting(false);
     }
   }
 
@@ -92,81 +121,91 @@ export default function LoginPage() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="text-2xl font-headline">Login</CardTitle>
+        <CardTitle className="text-2xl font-headline">Welcome to DebtFlow</CardTitle>
         <CardDescription>
-          Enter your email below to login to your account.
+          Please select your role and region to log in.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <FormField
               control={form.control}
-              name="email"
+              name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <FormLabel>Role</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
                     <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="m@example.com"
-                        {...field}
-                        className="pl-10"
-                        disabled={isSubmitting}
-                      />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
                     </FormControl>
-                  </div>
+                    <SelectContent>
+                      {ROLES.map(role => (
+                        <SelectItem key={role} value={role}>{role}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Password</FormLabel>
-                    <Link
-                      href="/forgot-password"
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Forgot password?
-                    </Link>
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        {...field}
-                        className="pl-10"
-                        disabled={isSubmitting}
-                      />
-                    </FormControl>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+
+            {watchRole && watchRole !== 'Country Manager' && (
+              <FormField
+                control={form.control}
+                name="region"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Region</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your region" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {regions.map(region => (
+                          <SelectItem key={region} value={region}>{region}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
+            {watchRole && (
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>User</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select user account" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {availableUsers.map(user => (
+                                    <SelectItem key={user.email} value={user.email}>{user.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )}
+              />
+            )}
+
+            <Button type="submit" className="w-full !mt-8" disabled={isSubmitting || !form.formState.isValid}>
               {isSubmitting ? 'Logging in...' : 'Login'}
             </Button>
-            <div className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/signup"
-                className="font-medium text-primary hover:underline"
-              >
-                Sign up
-              </Link>
-            </div>
-          </CardFooter>
+          </CardContent>
         </form>
       </Form>
     </Card>
