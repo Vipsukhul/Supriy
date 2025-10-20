@@ -33,7 +33,6 @@ import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { generateUserId } from "@/ai/flows/generate-user-id-flow";
-import { setRole as setRoleFlow } from "@/ai/flows/set-role-flow";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -108,23 +107,11 @@ export default function SignupPage() {
       const userDocRef = doc(firestore, "users", userAuth.uid);
       await setDoc(userDocRef, newUser);
       
-      // 6. If user is an admin, set custom claim and force re-login
-      if (role === 'admin') {
-          await setRoleFlow({ userId: userAuth.uid, role: 'admin' });
-          await auth.signOut(); // Sign out to force re-login
-          toast({
-              title: "Admin Account Created",
-              description: "Your admin account is ready. Please log in to continue.",
-              duration: 10000, // Make toast last longer
-          });
-          router.push('/login'); // Redirect to login page
-      } else {
-          toast({
-            title: "Account Created",
-            description: "Your account is ready. Redirecting to the dashboard.",
-          });
-          router.push('/dashboard');
-      }
+      toast({
+        title: "Account Created",
+        description: "Your account is ready. Redirecting to the dashboard.",
+      });
+      router.push('/dashboard');
 
     } catch (error: any) {
       console.error("Signup Error: ", error);

@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 import type { User, Role } from '@/models/user.model';
 import { useMemoFirebase } from '@/firebase/provider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
-import { setRole } from '@/ai/flows/set-role-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -30,10 +29,12 @@ export default function UserManagementPage() {
   const handleRoleChange = async (userId: string, newRole: Role) => {
     setIsSubmitting(prev => ({ ...prev, [userId]: true }));
     try {
-      await setRole({ userId, role: newRole });
+      const userDocRef = doc(firestore, 'users', userId);
+      await updateDoc(userDocRef, { role: newRole });
+      
       toast({
         title: "Role Updated",
-        description: `User role has been changed to ${newRole}. The user must log out and log back in for the change to take effect.`,
+        description: `User role has been successfully changed to ${newRole}.`,
       });
       // The local state will update automatically thanks to the real-time listener from useCollection
     } catch (error: any) {
