@@ -25,12 +25,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, useUser } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { regions } from "@/lib/regions";
 import { Role } from "@/models/user.model";
-import { getUsersForRole } from "@/lib/predefined-users";
+import { predefinedUsers } from "@/lib/predefined-users";
 import { Mail, Lock } from "lucide-react";
 
 const formSchema = z.object({
@@ -48,23 +48,43 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      region: undefined,
+      email: "",
+      password: "",
     },
   });
 
   const watchRole = form.watch("role");
+  const watchRegion = form.watch("region");
 
   useEffect(() => {
-    if (watchRole !== selectedRole) {
-      setSelectedRole(watchRole);
-      form.reset({ ...form.getValues(), region: undefined, email: undefined, password: "" });
+    form.reset({
+      ...form.getValues(),
+      region: undefined,
+      email: "",
+      password: "",
+    });
+  }, [watchRole, form]);
+
+  useEffect(() => {
+    const role = form.getValues("role");
+    const region = form.getValues("region");
+    if (role) {
+      const relevantUsers = predefinedUsers.filter(u => {
+        if (u.role !== role) return false;
+        if (role === 'Country Manager') return true;
+        return u.region === region;
+      });
+      if (relevantUsers.length > 0) {
+        form.setValue('email', relevantUsers[0].email);
+      } else {
+        form.setValue('email', '');
+      }
     }
-  }, [watchRole, form, selectedRole]);
+  }, [watchRole, watchRegion, form]);
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -149,7 +169,7 @@ export default function LoginPage() {
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select your region" />
-                        </SelectTrigger>
+                        </Trigger>
                       </FormControl>
                       <SelectContent>
                         {regions.map(region => (
