@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { regions } from "@/lib/regions";
 import { Role } from "@/models/user.model";
-import { predefinedUsers } from "@/lib/predefined-users";
+import { predefinedUsers, generatePassword } from "@/lib/predefined-users";
 import { Mail, Lock } from "lucide-react";
 
 const formSchema = z.object({
@@ -80,8 +80,13 @@ export default function LoginPage() {
       });
       if (relevantUsers.length > 0) {
         form.setValue('email', relevantUsers[0].email);
+        const newPassword = generatePassword(role, region);
+        if (newPassword) {
+            form.setValue('password', newPassword);
+        }
       } else {
         form.setValue('email', '');
+        form.setValue('password', '');
       }
     }
   }, [watchRole, watchRegion, form]);
