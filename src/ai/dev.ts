@@ -3,4 +3,5 @@
 // When you create flows in src/ai/flows, import them here
 // for them to be available in the development environment.
 import './flows/generate-user-id-flow';
+import './flows/set-role-flow';
     

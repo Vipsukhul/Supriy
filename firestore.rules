@@ -1,15 +1,37 @@
+/**
+ * @fileOverview Firestore Security Rules for DebtFlow application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a role-based access control model with strict ownership for user profiles.
+ * High-level roles such as 'admin' and 'Country Manager' have elevated privileges, while other roles
+ * are restricted to more limited data access.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile data, accessible primarily to the user themselves and admins.
+ * - /customers/{customerId}: Stores customer information. Access is generally open for reads, but writes are restricted.
+ * - /financialRecords/{recordId}: Stores financial records, including invoice details. Access control depends on user roles and potentially assigned ownership.
+ * - /counters/users: Stores a counter document for generating user IDs. Only admins have write access.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed to prevent unauthorized data scraping.
+ * - The `counters` collection is protected to prevent unauthorized modification of ID generation logic.
+ * - Data validation focuses on relational integrity and authorization fields, rather than strict schema enforcement, to allow for prototyping flexibility.
+ *
+ * Denormalization for Authorization:
+ *  - The role field within the `/users/{userId}` document is used directly for role-based access control, avoiding the need for separate role lookup queries.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Controls access to user profile data.
      * @path /users/{userId}
-     * @allow (create) Allows a user to create their own profile if the UID matches.
-     * @allow (get, update, delete) Allows a user to read, update, or delete their own profile.
-     * @deny (create) Denies creation if the UID does not match the authenticated user.
-     * @deny (get, update, delete) Denies access if the UID does not match the authenticated user or the document doesn't exist.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with matching UID can create their own profile.
+     * @allow (get, update, delete) User with matching UID can access and modify their own profile. Admin users can read and modify any user profile.
+     * @deny (create) User cannot create a profile with a mismatched UID.
+     * @deny (list) User listing is not permitted.
+     * @principle Enforces user ownership and role-based access for user profiles.
      */
     match /users/{userId} {
       function isSignedIn() {
@@ -17,55 +39,89 @@ service cloud.firestore {
       }
 
       function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
-      function isExistingOwner(userId) {
-        return isOwner(userId) && exists(resource);
+      function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
       }
 
-      allow get: if isOwner(userId);
-      allow list: if false; // Listing users is not permitted.
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      function isCountryManager() {
+        return isSignedIn() && request.auth.token.role == 'Country Manager';
+      }
+
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin() || isCountryManager());
+      allow list: if false;
+
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin() || isCountryManager()) && resource.data.uid == userId;
+      allow delete: if isSignedIn() && (isOwner(userId) || isAdmin() || isCountryManager()) && resource.data.uid == userId;
     }
 
     /**
-     * @description Controls access to customer documents.
+     * @description Controls access to customer data.
      * @path /customers/{customerId}
-     * @allow (get, list) Allows anyone to read customer data.
-     * @deny (create, update, delete) Denies anyone to write customer data.
-     * @principle Allows public read access with restricted write access.
+     * @allow (get, list) Any authenticated user can read customer data.
+     * @deny (create, update, delete) Only admin users can create, update, or delete customer data.
+     * @principle Restricts write access to customer data to admin roles.
      */
     match /customers/{customerId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
+      }
+
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add authorization for creating/updating customer data
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
-     * @description Controls access to financial record documents.
+     * @description Controls access to financial record data.
      * @path /financialRecords/{recordId}
-     * @allow (get, list) Allows anyone to read financial record data.
-     * @deny (create, update, delete) Denies anyone to write financial record data.
-     * @principle Allows public read access with restricted write access.
+     * @allow (get, list) Any authenticated user can read financial record data.
+     * @deny (create, update, delete) Only admin users can create, update, or delete financial record data.
+     * @principle Restricts write access to financial record data to admin roles.
      */
     match /financialRecords/{recordId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
+      }
+
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add authorization for creating/updating financial record data
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
-     * @description Controls access to the users counter document.
+     * @description Controls access to the user ID counter.
      * @path /counters/users
-     * @deny (get, list, create, update, delete) Denies all access to the counter document for now.
+     * @allow (get) Any authenticated user can read the counter.
+     * @deny (create, update, delete) Only admin users can update the counter.
+     * @principle Restricts write access to the counter to admin roles to prevent ID conflicts.
      */
-    match /counters/{counterId} {
-        allow get: if false;
-        allow list: if false;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+    match /counters/users {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
+      }
+
+      allow get: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

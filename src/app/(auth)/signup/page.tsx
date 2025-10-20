@@ -33,6 +33,7 @@ import type { User, Role } from "@/models/user.model";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { generateUserId } from "@/ai/flows/generate-user-id-flow";
+import { setRole as setRoleFlow } from "@/ai/flows/set-role-flow";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -85,11 +86,12 @@ export default function SignupPage() {
       const namePrefix = values.name.substring(0, 3).toLowerCase();
       const { userId } = await generateUserId({ prefix: namePrefix });
 
-      // 3. Prepare the user document for Firestore
+      // 3. Determine user role
       const [firstName, ...lastNameParts] = values.name.split(' ');
       const lastName = lastNameParts.join(' ');
       const role: Role = adminEmails.includes(values.email.toLowerCase()) ? 'admin' : 'Guest';
 
+      // 4. Prepare the user document for Firestore
       const newUser: User = {
         uid: userAuth.uid,
         userId: userId,
@@ -102,17 +104,27 @@ export default function SignupPage() {
         role: role
       };
       
-      // 4. Save the user document to Firestore
+      // 5. Save the user document to Firestore
       const userDocRef = doc(firestore, "users", userAuth.uid);
       await setDoc(userDocRef, newUser);
-
-      toast({
-        title: "Account Created",
-        description: "Your account is ready. Redirecting to the dashboard.",
-        duration: 5000,
-      });
-
-      router.push('/dashboard');
+      
+      // 6. If user is an admin, set custom claim and force re-login
+      if (role === 'admin') {
+          await setRoleFlow({ userId: userAuth.uid, role: 'admin' });
+          await auth.signOut(); // Sign out to force re-login
+          toast({
+              title: "Admin Account Created",
+              description: "Your admin account is ready. Please log in to continue.",
+              duration: 10000, // Make toast last longer
+          });
+          router.push('/login'); // Redirect to login page
+      } else {
+          toast({
+            title: "Account Created",
+            description: "Your account is ready. Redirecting to the dashboard.",
+          });
+          router.push('/dashboard');
+      }
 
     } catch (error: any) {
       console.error("Signup Error: ", error);
@@ -128,8 +140,7 @@ export default function SignupPage() {
         title: "Signup Failed",
         description: errorMessage,
       });
-    } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false); // Only stop submitting on failure
     }
   }
 
