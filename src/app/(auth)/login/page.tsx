@@ -36,7 +36,7 @@ import { Mail, Lock } from "lucide-react";
 const formSchema = z.object({
   role: z.custom<Role>(),
   region: z.string().optional(),
-  email: z.string().email(),
+  email: z.string().email({ message: "A valid email is required." }),
   password: z.string().min(1, { message: "Password is required." }),
 });
 
@@ -63,13 +63,22 @@ export default function LoginPage() {
   const watchRegion = form.watch("region");
 
   useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, isUserLoading, router]);
+
+  useEffect(() => {
+    // This effect now correctly handles resetting fields when the role changes.
     form.reset({
       ...form.getValues(),
       region: undefined,
       email: "",
       password: "",
     });
-  }, [watchRole, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchRole]);
+
 
   useEffect(() => {
     const role = form.getValues("role");
@@ -77,6 +86,7 @@ export default function LoginPage() {
 
     if (!role) {
       form.setValue('email', '');
+      form.setValue('password', '');
       return;
     }
     
@@ -97,16 +107,10 @@ export default function LoginPage() {
     if (newPassword) {
       form.setValue('password', newPassword);
     } else {
-        form.setValue('password', '');
+      form.setValue('password', '');
     }
 
   }, [watchRole, watchRegion, form]);
-
-  useEffect(() => {
-    if (!isUserLoading && user) {
-      router.push('/dashboard');
-    }
-  }, [user, isUserLoading, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
