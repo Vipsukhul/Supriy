@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { regions } from "@/lib/regions";
 import { Role } from "@/models/user.model";
-import { predefinedUsers, generatePassword } from "@/lib/predefined-users";
+import { generatePassword } from "@/lib/predefined-users";
 import { Mail, Lock } from "lucide-react";
 
 const formSchema = z.object({
@@ -52,6 +52,8 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      role: undefined,
+      region: undefined,
       email: "",
       password: "",
     },
@@ -72,23 +74,32 @@ export default function LoginPage() {
   useEffect(() => {
     const role = form.getValues("role");
     const region = form.getValues("region");
-    if (role) {
-      const relevantUsers = predefinedUsers.filter(u => {
-        if (u.role !== role) return false;
-        if (role === 'Country Manager') return true;
-        return u.region === region;
-      });
-      if (relevantUsers.length > 0) {
-        form.setValue('email', relevantUsers[0].email);
-        const newPassword = generatePassword(role, region);
-        if (newPassword) {
-            form.setValue('password', newPassword);
-        }
-      } else {
-        form.setValue('email', '');
-        form.setValue('password', '');
-      }
+
+    if (!role) {
+      form.setValue('email', '');
+      return;
     }
+    
+    let emailPrefix = '';
+    if (role === 'Country Manager') {
+      emailPrefix = 'country-manager';
+    } else if (role && region) {
+      emailPrefix = `${role.toLowerCase().replace(' ', '')}-${region.toLowerCase().replace(/\s/g, '')}`;
+    }
+
+    if (emailPrefix) {
+      form.setValue('email', `${emailPrefix}@debtflow.com`);
+    } else {
+      form.setValue('email', '');
+    }
+
+    const newPassword = generatePassword(role, region);
+    if (newPassword) {
+      form.setValue('password', newPassword);
+    } else {
+        form.setValue('password', '');
+    }
+
   }, [watchRole, watchRegion, form]);
 
   useEffect(() => {
