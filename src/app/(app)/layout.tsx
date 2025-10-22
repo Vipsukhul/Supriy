@@ -1,20 +1,34 @@
 
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop, Linkedin, Twitter } from 'lucide-react';
+import { Home, FileText, FileSpreadsheet, LogOut, ChevronDown, Menu, Upload, Moon, Sun, Laptop, Linkedin, Twitter, KeyRound, UserCog } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
 import { BackToTopButton } from '@/components/ui/back-to-top-button';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -22,6 +36,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { setTheme } = useTheme();
+  const { toast } = useToast();
+  const [isPasswordResetAlertOpen, setIsPasswordResetAlertOpen] = useState(false);
+
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -38,6 +55,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!email) return 'U';
     return email.substring(0, 2).toUpperCase();
   }
+
+  const handlePasswordReset = async () => {
+    if (!user || !user.email) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not send password reset email. User not found.",
+        });
+        return;
+    }
+    try {
+        await sendPasswordResetEmail(auth, user.email);
+        toast({
+            title: "Password Reset Email Sent",
+            description: "Check your inbox for a link to reset your password.",
+        });
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message || "Failed to send password reset email.",
+        });
+    } finally {
+        setIsPasswordResetAlertOpen(false);
+    }
+  };
+
 
   if (isUserLoading || !user) {
     return (
@@ -92,10 +136,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen w-full flex-col">
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
-        <div className="md:hidden">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0">
+              <Button variant="outline" size="icon" className="shrink-0 md:hidden">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
@@ -112,13 +155,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </SheetContent>
           </Sheet>
-        </div>
         
         <div className="flex items-center gap-4">
             <Link href="/dashboard" className="hidden md:flex items-center gap-2 font-semibold">
               <Logo />
             </Link>
-            <div className="hidden md:flex">
+            <div className="hidden md:flex ml-6">
               <DesktopNavLinks />
             </div>
         </div>
@@ -139,7 +181,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                        Settings
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                        <DropdownMenuItem asChild>
+                           <Link href="/profile">
+                                <UserCog className="mr-2 h-4 w-4" />
+                                <span>Edit User Details</span>
+                           </Link>
+                        </DropdownMenuItem>
+                         <AlertDialog open={isPasswordResetAlertOpen} onOpenChange={setIsPasswordResetAlertOpen}>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                    <KeyRound className="mr-2 h-4 w-4" />
+                                    <span>Change Password</span>
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Change Password</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Are you sure you want to send a password reset link to your email?
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handlePasswordReset}>Continue</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                 </DropdownMenuSub>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                  <DropdownMenuSeparator />
                  <DropdownMenuSub>
@@ -197,3 +273,5 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+    

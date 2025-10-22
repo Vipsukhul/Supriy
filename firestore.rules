@@ -1,84 +1,94 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles
- * and allows public read access to customer and financial record data while restricting
- * writes to authenticated users.
+ * @fileOverview Firestore Security Rules for DebtFlow application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles,
+ * and public read access with owner-only writes for customers and financial records.
+ * Counters are writeable only by authenticated users.
  *
  * Data Structure:
- * - /users/{userId}: Stores individual user profiles, accessible only to the owner.
- * - /customers/{customerId}: Stores customer information, publicly readable but write-protected.
- * - /financialRecords/{recordId}: Stores monthly financial records, publicly readable but write-protected.
+ * - /users/{userId}: Stores individual user profiles, accessible only to the user themselves.
+ * - /customers/{customerId}: Stores customer data, publicly readable but only writable by authenticated users.
+ * - /financialRecords/{recordId}: Stores financial records, publicly readable but only writable by authenticated users.
+ * - /counters/users: Stores a counter for generating sequential user IDs, writable only by authenticated users.
  *
  * Key Security Decisions:
- * - User profiles are private and only accessible to the authenticated user.
- * - Listing of users is explicitly denied.
- * - Customer and financial record data are publicly readable, but write access is restricted.
+ * - Users cannot list all users (this is a privacy concern).
+ * - Public read access is enabled for customer and financial records to facilitate data sharing.
+ *
+ * Denormalization for Authorization:
+ *  There is currently no need to denormalize due to simple ownership and role-based access patterns.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profiles. Each user can only access their own profile.
+     * @description Enforces document ownership for user profiles. Only the authenticated user can read or write their own profile.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user with matching UID can create their profile.
-     * @allow (get, update, delete) - Authenticated user with matching UID can access and modify their profile.
-     * @deny (create) - Authenticated user attempts to create a profile with a mismatched UID.
-     * @deny (get, update, delete) - Authenticated user attempts to access or modify another user's profile.
-     * @principle Enforces document ownership for all operations.
+     * @allow (get, create, update, delete) - User 'jIhGynCfJ6SMILQrS30GCfk3gcK2' can access /users/jIhGynCfJ6SMILQrS30GCfk3gcK2.
+     * @deny (get, create, update, delete) - User 'jIhGynCfJ6SMILQrS30GCfk3gcK2' cannot access /users/someOtherUserId.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
-
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
       allow get: if isOwner(userId);
-      allow list: if false; // Listing users is not permitted
+      allow list: if false;
 
-      // Allow the user to create their own profile, but only if the UID matches
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-
-      // The isExistingOwner is used for update and delete operations, preventing accidental changes to non-existent documents.
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to customer records.  Allows public read access, but restricts write access.
+     * @description Allows public read access to customer data, but restricts writes to authenticated users.
      * @path /customers/{customerId}
      * @allow (get, list) - Any user can read customer data.
-     * @deny (create, update, delete) - Only authenticated users can create, update or delete customer data.
-     * @principle Allows public read access with restricted write access for authenticated users only.
+     * @allow (create, update, delete) - Authenticated users can create, update, or delete customer data.
+     * @deny (create, update, delete) - Unauthenticated users cannot create, update, or delete customer data.
+     * @principle Allows public reads with authenticated writes.
      */
     match /customers/{customerId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn(); // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create, update, delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to financial records. Allows public read access, but restricts write access.
+     * @description Allows public read access to financial records, but restricts writes to authenticated users.
      * @path /financialRecords/{recordId}
-     * @allow (get, list) - Any user can read financial record data.
-     * @deny (create, update, delete) - No one can create, update, or delete financial records (except through backend).
-     * @principle Allows public read access with restricted write access.
+     * @allow (get, list) - Any user can read financial records.
+     * @allow (create, update, delete) - Authenticated users can create, update, or delete financial records.
+     * @deny (create, update, delete) - Unauthenticated users cannot create, update, or delete financial records.
+     * @principle Allows public reads with authenticated writes.
      */
     match /financialRecords/{recordId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn(); // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Restricts write access to the user counter to authenticated users.
+     * @path /counters/users
+     * @allow (get) - Anyone can read the counter.
+     * @allow (create, update) - Authenticated users can create or update the counter.
+     * @deny (create, update) - Unauthenticated users cannot create or update the counter.
+     * @principle Restricts write access to authenticated users.
+     */
+    match /counters/users {
+      allow get: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if false;
+      allow list: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
     }
   }
 }

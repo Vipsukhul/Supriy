@@ -6,147 +6,139 @@ import { Logo } from '@/components/logo';
 import { Sidebar, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel, SidebarProvider } from '@/components/ui/sidebar';
 import { Shield, Users, Home } from 'lucide-react';
 import AdminSignOutButton from './components/AdminSignOutButton';
-import { useUser, useFirestore, useAuth } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
+import type { User } from '@/models/user.model';
+import AdminHeader from './components/AdminHeader';
+
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const auth = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isCheckingRole, setIsCheckingRole] = useState(true);
+  
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized'>('loading');
 
   useEffect(() => {
-    // Wait until Firebase has determined the initial auth state.
-    if (isUserLoading) {
-      return; 
-    }
-
-    // If the user is trying to access the login page, don't do anything here.
-    // Let the login page handle its own logic.
+    // 1. If we are on the login page, do nothing. Let it render.
     if (pathname === '/admin/login') {
-      setIsCheckingRole(false);
+      setAuthStatus('unauthorized'); // Allows the login page to be rendered
       return;
     }
 
-    // If there is no user, they should be redirected to the admin login page.
+    // 2. If Firebase auth is still loading, wait.
+    if (isUserLoading) {
+      setAuthStatus('loading');
+      return;
+    }
+    
+    // 3. If no user is logged in at all, redirect to the admin login page.
     if (!user) {
-      setIsCheckingRole(false);
       router.replace("/admin/login");
+      setAuthStatus('unauthorized'); // Show loader during redirect
       return;
     }
 
-    // A user is logged in. Now, check if they are an admin.
+    // 4. A user is logged in. Now, check their role from Firestore.
     const checkAdminRole = async () => {
       try {
         const userDocRef = doc(firestore, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
+        
+        const userData = userDoc.data() as User | undefined;
 
-        // Check if the document exists and the role is 'admin'.
-        if (userDoc.exists() && userDoc.data().role === 'admin') {
-          setIsAuthorized(true);
+        if (userDoc.exists() && userData?.role?.toLowerCase() === 'admin') {
+          setAuthStatus('authorized');
         } else {
-          // User is logged in but is NOT an admin.
-          // Sign them out from the admin attempt and redirect to general login.
-          await auth.signOut();
-          router.replace('/login');
+          // If they don't have the admin role, show error and redirect.
+          setAuthStatus('unauthorized');
           toast({
             variant: "destructive",
             title: "Access Denied",
             description: "You do not have administrative privileges.",
           });
+          router.replace('/dashboard'); 
         }
       } catch (error) {
         console.error("Error checking admin role:", error);
-        await auth.signOut(); // Sign out on error for safety
-        router.replace('/login');
-      } finally {
-        setIsCheckingRole(false);
+        setAuthStatus('unauthorized');
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not verify your user role.",
+        });
+        router.replace('/dashboard');
       }
     };
 
     checkAdminRole();
-  }, [user, isUserLoading, firestore, router, pathname, auth, toast]);
+  }, [user, isUserLoading, firestore, router, pathname, toast]);
 
-  // If the user is trying to access the login page, let them.
+  // Render based on authorization status
+
+  // Case 1: On the login page, just render the page itself.
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
-
-  // While checking auth state or role, show a full-page loader.
-  if (isUserLoading || isCheckingRole) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  // Only render the admin layout if the user is a confirmed admin.
-  if (!isAuthorized) {
-    // This state is a fallback. The useEffect should handle redirection.
-    // A brief loader is shown here before the redirection completes.
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
-      </div>
-    );
-  }
   
-  return (
-    <SidebarProvider>
-    <div className="flex min-h-screen bg-muted/40">
-      <Sidebar side="left" className="w-64" collapsible="icon">
-          <SidebarGroup>
-            <SidebarGroupLabel>
-              <Logo />
-            </SidebarGroupLabel>
-          </SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <Link href="/admin/dashboard">
-                <SidebarMenuButton tooltip="Dashboard">
-                  <Home />
-                  Dashboard
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-                <Link href="/admin/management">
-                    <SidebarMenuButton tooltip="Admin Management">
-                        <Shield />
-                        Admin Management
-                    </SidebarMenuButton>
-                </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/admin/users">
-                <SidebarMenuButton tooltip="User Management">
-                  <Users />
-                  User Management
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        <div className="mt-auto">
-            <SidebarMenu>
+  // Case 2: Still loading or checking auth. Show a full-page loader.
+  if (authStatus === 'loading') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // Case 3: Authorized. Render the full admin layout.
+  if (authStatus === 'authorized') {
+      return (
+        <SidebarProvider>
+        <div className="flex min-h-screen bg-muted/40">
+          <Sidebar side="left" className="w-64" collapsible="icon">
+              <SidebarGroup>
+                <SidebarGroupLabel>
+                  <Logo />
+                </SidebarGroupLabel>
+              </SidebarGroup>
+              <SidebarMenu>
                 <SidebarMenuItem>
-                    <AdminSignOutButton />
+                  <Link href="/admin/dashboard">
+                    <SidebarMenuButton tooltip="Dashboard">
+                      <Home />
+                      Dashboard
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
-            </SidebarMenu>
+              </SidebarMenu>
+            <div className="mt-auto">
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <AdminSignOutButton />
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </div>
+          </Sidebar>
+          <main className="flex-1 flex flex-col">
+            <AdminHeader />
+            {children}
+          </main>
         </div>
-      </Sidebar>
-      <main className="flex-1 flex flex-col">
-        {children}
-      </main>
+        </SidebarProvider>
+      );
+  }
+
+  // Case 4: Unauthorized and not on login page.
+  // This state is temporary before a redirect, so a loader is appropriate.
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner />
     </div>
-    </SidebarProvider>
   );
 }

@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Eye, Loader2 } from "lucide-react";
-import { useCollection, useFirestore } from "@/firebase";
+import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, query, where, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { FinancialRecord, Customer } from "@/models/data.model";
 import type { CustomerData, EnrichedInvoice } from "@/models/view.model";
@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/dialog";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
+import type { User } from "@/models/user.model";
+import { useDoc } from "@/firebase/firestore/use-doc";
 
 const financialYears = [
     { value: "2026", label: "2026-2027" },
@@ -71,6 +73,7 @@ const getAgingBucket = (invoiceDate: string): keyof CustomerData['aging'] => {
 
 export default function DatasheetPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   const [financialYear, setFinancialYear] = useState<string>("");
   const [months, setMonths] = useState<{value: string, label: string}[]>([]);
@@ -79,6 +82,12 @@ export default function DatasheetPage() {
   const [customerData, setCustomerData] = useState<Record<string, CustomerData>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  
+  const userDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: currentUserData } = useDoc<User>(userDocRef);
 
   const financialRecordsQuery = useMemoFirebase(() => {
     if (!firestore || !financialYear || !selectedMonth) return null;
@@ -95,6 +104,22 @@ export default function DatasheetPage() {
   const customersCollectionRef = useMemoFirebase(() => collection(firestore, 'customers'), [firestore]);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollectionRef);
   
+  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: allUsers } = useCollection<User>(usersCollectionRef);
+
+  const engineers = useMemo(() => {
+    if (!allUsers) return [];
+    return allUsers.filter(u => u.role === 'Engineer');
+  }, [allUsers]);
+  
+  const usersMap = useMemo(() => {
+    if (!allUsers) return {};
+    return allUsers.reduce((acc, user) => {
+        acc[user.id] = `${user.firstName} ${user.lastName}`;
+        return acc;
+    }, {} as Record<string, string>);
+  }, [allUsers]);
+
   const customersMap = useMemo(() => {
     if (!customers) return {};
     return customers.reduce((acc, customer) => {
@@ -119,7 +144,7 @@ export default function DatasheetPage() {
         
         for (const customerCode in groupedByCustomer) {
             const customerRecords = groupedByCustomer[customerCode];
-            const firstRecord = customerRecords[0].data; // Use first record for remarks/notes
+            const firstRecord = customerRecords[0].data;
 
             newCustomerData[customerCode] = {
                 customerCode,
@@ -128,7 +153,9 @@ export default function DatasheetPage() {
                 invoices: [],
                 remarks: firstRecord.remarks || 'None',
                 notes: firstRecord.notes || '',
-                recordId: customerRecords[0].recordId // Assuming one record per customer per month
+                recordId: customerRecords[0].recordId,
+                assignedEngineerId: firstRecord.assignedEngineerId,
+                region: firstRecord.invoices[0]?.region || 'N/A' // Store region for permission checks
             };
 
             customerRecords.forEach(({ data: record }) => {
@@ -144,7 +171,7 @@ export default function DatasheetPage() {
             });
         }
         setCustomerData(newCustomerData);
-        setCurrentPage(1); // Reset to first page on data change
+        setCurrentPage(1);
     }
   }, [records, customersMap]);
 
@@ -164,7 +191,7 @@ export default function DatasheetPage() {
     setCustomerData({});
   }
 
-  const handleFieldChange = (customerCode: string, field: 'remarks' | 'notes', value: string) => {
+  const handleFieldChange = (customerCode: string, field: 'remarks' | 'notes' | 'assignedEngineerId', value: string) => {
       const customerInfo = customerData[customerCode];
       if (!customerInfo || !customerInfo.recordId) return;
 
@@ -181,7 +208,7 @@ export default function DatasheetPage() {
       
       toast({
           title: "Update Queued",
-          description: `Customer ${field} has been updated.`,
+          description: `Customer ${field === 'assignedEngineerId' ? 'assignment' : field} has been updated.`,
       });
   }
 
@@ -189,7 +216,6 @@ export default function DatasheetPage() {
       const customerInfo = customerData[customerCode];
       if (!customerInfo || !customerInfo.recordId) return;
 
-      // Update local state first for immediate UI feedback
       setCustomerData(prev => ({
         ...prev,
         [customerCode]: {
@@ -200,7 +226,6 @@ export default function DatasheetPage() {
       
       const recordRef = doc(firestore, 'financialRecords', customerInfo.recordId);
 
-      // We need to update the entire invoices array.
       try {
         await updateDoc(recordRef, { invoices: updatedInvoices });
         toast({
@@ -214,11 +239,29 @@ export default function DatasheetPage() {
             title: "Update Failed",
             description: "Could not save invoice details. " + error.message,
         });
-        // Optionally revert local state on failure
       }
   }
+  
+  const getPermissions = (item: CustomerData) => {
+      const role = currentUserData?.role;
+      const userRegion = currentUserData?.region;
+      const userUID = user?.uid;
 
-  const isLoading = recordsLoading || customersLoading;
+      if (role === 'Country Manager') {
+          return { canEditRemarks: true, canEditNotes: true, canEditInvoices: true, canAssign: true };
+      }
+      if (role === 'Manager') {
+          const canEdit = item.region === userRegion;
+          return { canEditRemarks: canEdit, canEditNotes: canEdit, canEditInvoices: canEdit, canAssign: canEdit };
+      }
+      if (role === 'Engineer') {
+          const canEdit = item.assignedEngineerId === userUID;
+          return { canEditRemarks: canEdit, canEditNotes: canEdit, canEditInvoices: canEdit, canAssign: false };
+      }
+      return { canEditRemarks: false, canEditNotes: false, canEditInvoices: false, canAssign: false };
+  }
+
+  const isLoading = recordsLoading || customersLoading || !currentUserData;
   const displayData = useMemo(() => Object.values(customerData), [customerData]);
   
   const paginatedData = useMemo(() => {
@@ -277,7 +320,7 @@ export default function DatasheetPage() {
                   <TableHead className="min-w-[120px]">Above 1 year</TableHead>
                   <TableHead className="min-w-[200px]">Remarks</TableHead>
                   <TableHead className="min-w-[250px]">Notes</TableHead>
-                  <TableHead className="min-w-[150px]">Assigned to</TableHead>
+                  <TableHead className="min-w-[200px]">Assigned to</TableHead>
                   <TableHead>View</TableHead>
                 </TableRow>
               </TableHeader>
@@ -289,7 +332,9 @@ export default function DatasheetPage() {
                     </TableCell>
                   </TableRow>
                 ) : paginatedData && paginatedData.length > 0 ? (
-                  paginatedData.map((item) => (
+                  paginatedData.map((item) => {
+                    const permissions = getPermissions(item);
+                    return (
                     <TableRow key={item.customerCode}>
                       <TableCell className="font-medium">{item.customerCode}</TableCell>
                       <TableCell>{customersMap[item.customerCode] || item.customerName}</TableCell>
@@ -299,7 +344,11 @@ export default function DatasheetPage() {
                       <TableCell>${item.aging.days181_365.toLocaleString()}</TableCell>
                       <TableCell>${item.aging.above1Year.toLocaleString()}</TableCell>
                       <TableCell>
-                        <Select value={item.remarks} onValueChange={(value) => handleFieldChange(item.customerCode, 'remarks', value)}>
+                        <Select 
+                            value={item.remarks} 
+                            onValueChange={(value) => handleFieldChange(item.customerCode, 'remarks', value)}
+                            disabled={!permissions.canEditRemarks}
+                        >
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
@@ -318,20 +367,40 @@ export default function DatasheetPage() {
                             onBlur={(e) => handleFieldChange(item.customerCode, 'notes', e.target.value)}
                             onChange={(e) => setCustomerData(prev => ({...prev, [item.customerCode]: {...prev[item.customerCode], notes: e.target.value}}))}
                             className="min-h-[60px]"
+                            disabled={!permissions.canEditNotes}
                         />
                       </TableCell>
                        <TableCell>
-                        {/* Placeholder for Assigned to */}
-                        N/A
+                          {permissions.canAssign ? (
+                             <Select 
+                                value={item.assignedEngineerId || ''} 
+                                onValueChange={(value) => handleFieldChange(item.customerCode, 'assignedEngineerId', value)}
+                             >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Assign Engineer" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">Unassigned</SelectItem>
+                                    {engineers.filter(e => e.region === item.region).map(engineer => (
+                                        <SelectItem key={engineer.id} value={engineer.id}>
+                                            {engineer.firstName} {engineer.lastName}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                          ) : (
+                              <span>{item.assignedEngineerId ? usersMap[item.assignedEngineerId] : 'N/A'}</span>
+                          )}
                       </TableCell>
                       <TableCell>
                         <CustomerInvoicesDialog 
                             customer={item} 
                             onSave={handleInvoicesUpdate}
+                            canEdit={permissions.canEditInvoices}
                         />
                       </TableCell>
                     </TableRow>
-                  ))
+                  )})
                 ) : (
                   <TableRow>
                     <TableCell colSpan={11} className="h-24 text-center">
@@ -377,9 +446,10 @@ export default function DatasheetPage() {
 interface CustomerInvoicesDialogProps {
     customer: CustomerData;
     onSave: (customerCode: string, invoices: EnrichedInvoice[]) => Promise<void>;
+    canEdit: boolean;
 }
 
-function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProps) {
+function CustomerInvoicesDialog({ customer, onSave, canEdit }: CustomerInvoicesDialogProps) {
     const [invoices, setInvoices] = useState<EnrichedInvoice[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -435,7 +505,11 @@ function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProp
                                     <TableCell>${invoice.invoiceAmount.toLocaleString()}</TableCell>
                                     <TableCell>${invoice.outstandingAmount.toLocaleString()}</TableCell>
                                     <TableCell>
-                                        <Select value={invoice.dispute} onValueChange={(value) => handleInvoiceChange(invoice.invoiceNumber, 'dispute', value)}>
+                                        <Select 
+                                          value={invoice.dispute} 
+                                          onValueChange={(value) => handleInvoiceChange(invoice.invoiceNumber, 'dispute', value)}
+                                          disabled={!canEdit}
+                                        >
                                             <SelectTrigger className="w-[80px]">
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -450,6 +524,7 @@ function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProp
                                             value={invoice.note}
                                             onChange={(e) => handleInvoiceChange(invoice.invoiceNumber, 'note', e.target.value)}
                                             className="min-h-[40px] w-[200px]"
+                                            disabled={!canEdit}
                                         />
                                     </TableCell>
                                 </TableRow>
@@ -457,11 +532,11 @@ function CustomerInvoicesDialog({ customer, onSave }: CustomerInvoicesDialogProp
                         </TableBody>
                     </Table>
                 </div>
-                <div className="pt-4 flex justify-end">
+                {canEdit && <div className="pt-4 flex justify-end">
                     <Button onClick={handleSaveChanges} disabled={isSaving}>
                         {isSaving ? 'Saving...' : 'Save Changes'}
                     </Button>
-                </div>
+                </div>}
             </DialogContent>
         </Dialog>
     )

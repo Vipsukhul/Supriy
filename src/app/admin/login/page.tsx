@@ -53,10 +53,11 @@ export default function AdminLoginPage() {
   });
   
   useEffect(() => {
-    // If we are done loading and a user is already logged in,
-    // the layout will handle redirection to the dashboard if they are an admin.
+    // If auth is no longer loading and a user is present,
+    // immediately try to navigate them to the dashboard.
+    // The AdminLayout will then handle the final role verification.
     if (!isUserLoading && user) {
-        router.push('/admin/dashboard');
+      router.replace('/admin/dashboard');
     }
   }, [user, isUserLoading, router]);
 
@@ -64,9 +65,8 @@ export default function AdminLoginPage() {
     setIsSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
-      // On successful login, the `user` state will update,
-      // and the useEffect above will trigger the redirect to the dashboard.
-      // The admin layout will then perform the definitive role check.
+      // On successful sign-in, the 'user' state will update, triggering the useEffect
+      // to redirect to the dashboard. A success toast is not needed as the layout change is feedback enough.
     } catch (error: any) {
         let errorMessage = "An unexpected error occurred.";
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -79,10 +79,10 @@ export default function AdminLoginPage() {
         });
         setIsSubmitting(false);
     }
-    // No need to set isSubmitting to false on success because a page navigation will occur
+    // Don't set isSubmitting to false on success, as a page navigation will occur.
   }
   
-  // Show a loader ONLY while the initial auth check is happening.
+  // Show a loader while the initial auth state is being determined.
   if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -91,8 +91,8 @@ export default function AdminLoginPage() {
     );
   }
   
-  // If not loading and a user is already logged in, the layout/useEffect will redirect.
-  // This prevents the login form from flashing.
+  // If a user is already logged in, the useEffect will handle the redirect.
+  // Rendering a loader here prevents the login form from flashing.
   if (user) {
     return (
         <div className="flex items-center justify-center min-h-screen">

@@ -3,13 +3,11 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -23,17 +21,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Mail, Lock } from "lucide-react";
 import { useAuth, useUser } from "@/firebase";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { onAuthStateChanged } from "firebase/auth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Mail, Lock } from "lucide-react";
+import Link from 'next/link';
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  email: z.string().email({ message: "A valid email is required." }),
+  password: z.string().min(1, { message: "Password is required." }),
 });
 
 export default function LoginPage() {
@@ -42,7 +40,7 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -50,38 +48,39 @@ export default function LoginPage() {
       password: "",
     },
   });
-  
+
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/dashboard');
     }
   }, [user, isUserLoading, router]);
 
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    
     try {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        if (user) {
-          toast({
-            title: "Login Successful",
-            description: "Welcome back!",
-          });
-          unsubscribe();
-        }
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      toast({
+        title: "Login Successful",
+        description: "Welcome back!",
       });
-      initiateEmailSignIn(auth, values.email, values.password);
+      router.push('/dashboard');
     } catch (error: any) {
+      let errorMessage = "An unexpected error occurred. Please try again.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = "Invalid credentials. Please check your email and password.";
+      }
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error.message || "An unexpected error occurred.",
+        description: errorMessage,
       });
-      setIsSubmitting(false); // Only set on error
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
-  if (isUserLoading || user) {
+  if (isUserLoading || (!isUserLoading && user)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner />
@@ -92,14 +91,14 @@ export default function LoginPage() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="text-2xl font-headline">Login</CardTitle>
+        <CardTitle className="text-2xl font-headline">Welcome to DebtFlow</CardTitle>
         <CardDescription>
-          Enter your email below to login to your account.
+          Please enter your credentials to log in.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <FormField
               control={form.control}
               name="email"
@@ -127,15 +126,7 @@ export default function LoginPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Password</FormLabel>
-                    <Link
-                      href="/forgot-password"
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Forgot password?
-                    </Link>
-                  </div>
+                  <FormLabel>Password</FormLabel>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <FormControl>
@@ -152,21 +143,16 @@ export default function LoginPage() {
                 </FormItem>
               )}
             />
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button type="submit" className="w-full !mt-8" disabled={isSubmitting || !form.formState.isValid}>
               {isSubmitting ? 'Logging in...' : 'Login'}
             </Button>
-            <div className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/signup"
-                className="font-medium text-primary hover:underline"
-              >
-                Sign up
-              </Link>
+            <div className="text-center text-sm">
+                Don't have an account?{' '}
+                <Link href="/signup" className="underline">
+                    Sign up
+                </Link>
             </div>
-          </CardFooter>
+          </CardContent>
         </form>
       </Form>
     </Card>
